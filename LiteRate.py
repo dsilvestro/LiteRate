@@ -229,13 +229,20 @@ def prior_normal(L,sd):
 def prior_exponential(L,rate): 
 	return sum(scipy.stats.expon.logpdf(L, scale=1./rate))
 
-
+def get_rate_HP(l,m):
+	rates = np.array(list(l)+list(m))
+	hpGamma_shape = 1.2 # hyperprior is essentially flat
+	hpGamma_rate =  0.1
+	post_rate_prm = np.random.gamma( shape=hpGamma_shape+Gamma_shape*len(rates), scale=1./(hpGamma_rate+sum(rates)) )
+	return post_rate_prm
+# prior = sum(prior_gamma(q_rates,pert_prior[0],post_rate_prm_Gq))
 
 # MCMC looop
 def runMCMC(arg):
 	# initial values of rates, and times
 	[L_acc, M_acc, timesLA, timesMA]  = arg
 	Poi_lambda_rjHP = 1
+	Gamma_rate = 1
 	# init lik
 	indLA = get_rate_index(timesLA)
 	indMA = get_rate_index(timesMA)
@@ -282,10 +289,11 @@ def runMCMC(arg):
 		else: 
 			# update HPs 
 			Poi_lambda_rjHP = get_post_rj_HP(len(L_acc),len(M_acc))
+			Gamma_rate = get_rate_HP(L_acc,M_acc)
 			gibbs=1
 		
 		# prior on rate
-		prior = prior_gamma(L) + prior_gamma(M)
+		prior = prior_gamma(L,Gamma_shape,Gamma_rate) + prior_gamma(M,Gamma_shape,Gamma_rate)
 		# prior on times of rate shift
 		prior += -log(max_time-min_time)*(len(L)-1+len(M)-1)
 		# prior on 
@@ -319,7 +327,7 @@ def runMCMC(arg):
 		
 		if iteration % s_freq ==0:
 			# MCMC log
-			log_state = map(str,[iteration,likA+priorA,likA,priorA,mean(L_acc),mean(M_acc),max_time,min_time])
+			log_state = map(str,[iteration,likA+priorA,likA,priorA,mean(L_acc),mean(M_acc),len(L_acc),len(M_acc),max_time,min_time,Gamma_rate,Poi_lambda_rjHP])
 			mcmc_logfile.write('\t'.join(log_state)+'\n')
 			mcmc_logfile.flush()
 			# log marginal rates/times
@@ -402,11 +410,12 @@ file_name = os.path.splitext(os.path.basename(f))[0]
 
 # MCMC log files
 out_dir = "%s/pyrate_mcmc_logs" % (out_dir)
-os.mkdir(out_dir) 
+try: os.mkdir(out_dir) 
+except: pass
 
 out_log = "%s/%s_mcmc.log" % (out_dir, file_name)
 mcmc_logfile = open(out_log , "w",0) 
-mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg","root_age","death_age"])+'\n')
+mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg","K_l","K_m","root_age","death_age","gamma_rate_hp","poisson_rate_hp"])+'\n')
 out_log = "%s/%s_sp_rates.log" % (out_dir, file_name)
 sp_logfile = open(out_log , "w",0) 
 out_log = "%s/%s_ex_rates.log" % (out_dir, file_name)
@@ -437,5 +446,8 @@ timesMA = np.array([max_time, min_time])
 
 # GLOBAL VAR
 min_allowed_t = 1
+Gamma_shape = 2. # shape parameter of Gamma prior on rates
+
+
 check_lik = 0 # debug
 runMCMC([L_acc,M_acc,timesLA,timesMA])
