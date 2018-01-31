@@ -401,6 +401,9 @@ out_dir= os.path.dirname(f)
 file_name = os.path.splitext(os.path.basename(f))[0]
 
 # MCMC log files
+out_dir = "%s/pyrate_mcmc_logs" % (out_dir)
+os.mkdir(out_dir) 
+
 out_log = "%s/%s_mcmc.log" % (out_dir, file_name)
 mcmc_logfile = open(out_log , "w",0) 
 mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg","root_age","death_age"])+'\n')
