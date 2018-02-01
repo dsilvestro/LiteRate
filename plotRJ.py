@@ -1,3 +1,4 @@
+#!/usr/bin/env python 
 from numpy import *
 import numpy as np
 import os,platform,glob,sys
@@ -86,9 +87,12 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 	# 5. a vector of times of rate shift
 	f = file(f_name,'U')
 	if nbins==0:
-		nbins = int(max_age-min_age)
+		nbins = abs(int(max_age-min_age))
 	post_rate=f.readlines()
-	bins_histogram = np.linspace(min_age,max_age,nbins+1)	
+	if present_year == -1: 
+		bins_histogram = np.linspace(min_age,max_age,nbins+1)	
+	else:
+		bins_histogram = np.linspace(max_age,min_age,nbins+1)	
 	marginal_rates_list = []
 	times_of_shift = []
 	
@@ -104,12 +108,20 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 			ind_rates = np.arange(0,int(np.ceil(len(row)/2.)))
 			ind_shifts = np.arange(int(np.ceil(len(row)/2.)),len(row))
 			rates = row[ind_rates]
-			shifts = row[ind_shifts]
-			h = np.histogram(row[ind_shifts],bins =bins_histogram)[0][::-1]
-			marginal_rates = rates[np.cumsum(h)]
+			if present_year == -1: 
+				shifts = row[ind_shifts]
+				h = np.histogram(shifts,bins =bins_histogram)[0][::-1]
+				marginal_rates = rates[np.cumsum(h)]
+			else: 
+				shifts = present_year-row[ind_shifts]
+				h = np.histogram(shifts,bins =bins_histogram)[0]
+				marginal_rates = rates[np.cumsum(h)][::-1]
+			
+			#print rates, marginal_rates, shifts,bins_histogram
+			#quit()
 			times_of_shift += list(shifts)
 		
-		marginal_rates_list.append(marginal_rates)
+			marginal_rates_list.append(marginal_rates)
 	
 	marginal_rates_list = np.array(marginal_rates_list)
 	mean_rates= np.mean(marginal_rates_list,axis=0)
@@ -119,7 +131,12 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 		min_rates += [hpd[0]]
 		max_rates += [hpd[1]]
 	
-	time_frames = bins_histogram-bins_histogram[1]/2.
+	time_frames = bins_histogram-abs(bins_histogram[1]-bins_histogram[0])/2.
+	#print rates, marginal_rates, 
+	#print shifts, h
+	#quit()
+	#print time_frames
+	#quit()
 	time_frames = time_frames[1:]
 	#print len(time_frames),len(mean_rates), 
 	n_mcmc_samples = len(post_rate)-burnin # number of samples used to normalize frequencies of rate shifts
@@ -128,33 +145,42 @@ def get_marginal_rates(f_name,min_age,max_age,nbins=0,burnin=0.2):
 
 def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulation=1):
 	out_str = "\n"
-	out_str += print_R_vec("\ntime",-res[0])
+	if present_year == -1: 
+		out_str += print_R_vec("\ntime",-res[0])
+		minXaxis,maxXaxis= -max_age,-min_age
+		time_lab = "BP"
+	else:
+		out_str += print_R_vec("\ntime",res[0])
+		minXaxis,maxXaxis= max_age,min_age
+		time_lab = "AD"
 	out_str += print_R_vec("\nrate",res[1][::-1])
 	out_str += print_R_vec("\nminHPD",res[2][::-1])
 	out_str += print_R_vec("\nmaxHPD",res[3][::-1])
 	if plot_log==0:
-		out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = '%s', xlab = 'Time',main='%s' )" \
-			% (0,1.1*np.nanmax(res[3]),-max_age,-min_age,parameter,plot_title) 
+		out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = '%s', xlab = 'Time (%s)',main='%s' )" \
+			% (0,1.1*np.nanmax(res[3]),minXaxis,maxXaxis,parameter,time_lab,plot_title) 
 		out_str += "\npolygon(c(time, rev(time)), c(maxHPD, rev(minHPD)), col = alpha('%s',0.3), border = NA)" % (col)
 		out_str += "\nlines(time,rate, col = '%s', lwd=2)" % (col)
 	else:
-		out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Log10 %s', xlab = 'Time',main='%s' )" \
-			% (np.nanmin(np.log10(0.9*res[2])),np.nanmax(np.log10(1.1*res[3])),-max_age,-min_age,parameter,plot_title) 
+		out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Log10 %s', xlab = 'Time (%s)',main='%s' )" \
+			% (np.nanmin(np.log10(0.9*res[2])),np.nanmax(np.log10(1.1*res[3])),minXaxis,maxXaxis,parameter,time_lab,plot_title) 
 		out_str += "\npolygon(c(time, rev(time)), c(log10(maxHPD), rev(log10(minHPD))), col = alpha('%s',0.3), border = NA)" % (col)
 		out_str += "\nlines(time,log10(rate), col = '%s', lwd=2)" % (col)
 		
 	# add barplot rate shifts
-	bins_histogram = np.linspace(min_age,max_age,len(res[0]))
+	if present_year == -1: bins_histogram = np.linspace(min_age,max_age,len(res[0]))
+	else: bins_histogram = np.linspace(max_age,min_age,len(res[0]))
 	if len(res[4])>1: # rate shift sampled at least once
 		h = np.histogram(res[4],bins =bins_histogram) #,density=1)
 	else:
 		h = [np.zeros(len(bins_histogram)-1),bins_histogram]
 	a = h[1]
-	mids = (a-a[1]/2.)[1:]
-	out_str += print_R_vec("\nmids",-mids)
+	mids = (a-abs(a[1]-a[0])/2.)[1:]
+	if present_year == -1: out_str += print_R_vec("\nmids",-mids)
+	else: out_str += print_R_vec("\nmids",mids)
 	out_str += print_R_vec("\ncounts",h[0]/float(res[5]))
-	out_str += "\nplot(mids,counts,type = 'h', xlim = c(%s,%s), ylim=c(0,%s), ylab = 'Frequency of rate shift', xlab = 'Time',lwd=5,col='%s')" \
-	    % (-max_age,-min_age,max(max(h[0]/float(res[5])),0.2),col)
+	out_str += "\nplot(mids,counts,type = 'h', xlim = c(%s,%s), ylim=c(0,%s), ylab = 'Frequency of rate shift', xlab = 'Time (%s)',lwd=5,col='%s')" \
+	    % (minXaxis,maxXaxis,max(max(h[0]/float(res[5])),0.2),time_lab,col)
 	# get BFs
 	if run_simulation==1:
 		BFs = get_prior_shift(min_age,max_age,bins_histogram)
@@ -191,18 +217,22 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 	if logT==1: outname = "Log_"
 	else: outname = ""
 	if max_age>0: outname+= "t%s" % (int(max_age))
-	r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=15, height=10)\npar(mfrow=c(2,3))\nlibrary(scales)" % (wd,outname)
+	r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=12, height=8)\npar(mfrow=c(2,3))\nlibrary(scales)" % (wd,outname)
 	for mcmc_file in files:
 		if 2>1: #try:
 			name_file = os.path.splitext(os.path.basename(mcmc_file))[0]		
 			if min_age==0 and max_age==0: # get empirical time range
 				tbl=np.loadtxt(mcmc_file, skiprows=1)
 				head = next(open(mcmc_file)).split() # should be faster
-				max_age_t = np.mean(tbl[:,head.index("root_age")])
-				min_age_t = np.mean(tbl[:,head.index("death_age")])
+				if present_year == -1:
+					max_age_t = np.mean(tbl[:,head.index("root_age")])
+					min_age_t = np.mean(tbl[:,head.index("death_age")])
+				else:
+					max_age_t = present_year-np.mean(tbl[:,head.index("root_age")])
+					min_age_t = present_year-np.mean(tbl[:,head.index("death_age")])
 			else:
 				min_age_t, max_age_t = min_age, max_age
-			nbins = int((max_age_t-min_age_t)/float(bin_size))
+			nbins = int(abs(max_age_t-min_age_t)/float(bin_size))
 			colors = ["#4c4cec","#e34a33"] # sp and ex rate
 			# sp file
 			r_str += get_K_values(tbl,head,colors[0],"l",burnin=0.2)
@@ -231,7 +261,10 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 p = argparse.ArgumentParser() #description='<input file>') 
 p.add_argument('input_data', metavar='<path to log files>', type=str,help='Input python file - see template',default="")
 p.add_argument('-logT', metavar='1', type=int,help='set to 1 to log transform rates',default=0)
+p.add_argument('-present_year',    type=int, help='set to > present AD to plot in time AD instead of time BP', default= -1, metavar= -1)
 
 args = p.parse_args()
 path_dir_log_files = args.input_data
+present_year = args.present_year
+
 plot_marginal_rates(path_dir_log_files,logT=args.logT)
