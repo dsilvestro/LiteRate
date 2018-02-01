@@ -168,6 +168,11 @@ def get_rate_index(times):
 		ind = []
 		[ ind.extend([i]*dT[i]) for i in range(len(times)-1) ]
 		ind = np.array(ind)
+		
+		# alternative way to compute it
+		#shifts = times[1:-1]
+		#h = np.histogram(shifts,bins =rev_bins)[0][::-1]
+		#ind = np.cumsum(h)
 	return ind
 
 def vect_lik(L_acc_vec,M_acc_vec):
@@ -245,6 +250,8 @@ def runMCMC(arg):
 	#likA = get_BDlik(timesLA,L_acc,"l") + get_BDlik(timesMA,M_acc,"m")
 	priorA = prior_gamma(L_acc) + prior_gamma(M_acc)
 	priorA += -log(max_time-min_time)*(len(L_acc)-1+len(M_acc)-1)
+	priorPoiA = Poisson_prior(len(L_acc),Poi_lambda_rjHP)+Poisson_prior(len(M_acc),Poi_lambda_rjHP)
+	priorA += priorPoiA
 	
 	iteration = 0
 	while iteration < n_iterations:		
@@ -255,6 +262,7 @@ def runMCMC(arg):
 		indM =indMA
 		hasting = 0
 		gibbs=0
+		priorPoi = 0
 		if r[0]< 0.4:
 			# update birth part
 			if r[1] < .5 or len(L_acc)==1:
@@ -275,11 +283,12 @@ def runMCMC(arg):
 				timesM = update_times(timesMA)
 				indM = get_rate_index(np.floor(timesM))
 			
-		elif r[0] < 0.95:
+		elif r[0] < 0.99:
 			# do RJ
 			L,timesL, M,timesM, hasting, update_L = RJMCMC([L_acc,M_acc, timesLA, timesMA])
 			if update_L==1: indL = get_rate_index(np.floor(timesL))
 			else: indM = get_rate_index(np.floor(timesM))
+			priorPoi = Poisson_prior(len(L),Poi_lambda_rjHP)+Poisson_prior(len(M),Poi_lambda_rjHP)
 			
 		else: 
 			# update HPs 
@@ -287,18 +296,22 @@ def runMCMC(arg):
 			Gamma_rate = get_rate_HP(L_acc,M_acc)
 			gibbs=1
 		
-		# prior on rate
-		prior = prior_gamma(L,Gamma_shape,Gamma_rate) + prior_gamma(M,Gamma_shape,Gamma_rate)
-		# prior on times of rate shift
-		prior += -log(max_time-min_time)*(len(L)-1+len(M)-1)
-		# prior on 
-		prior += Poisson_prior(len(L),Poi_lambda_rjHP)+Poisson_prior(len(M),Poi_lambda_rjHP)
 		# prevent super small time frames
 		if min(abs(np.diff(timesL)))<=min_allowed_t or min(abs(np.diff(timesM)))<=min_allowed_t: 
 			prior = -np.inf	
 			lik =  -np.inf			
 		else:
 			# calc acceptance ratio
+			# prior on rate
+			prior = prior_gamma(L,Gamma_shape,Gamma_rate) + prior_gamma(M,Gamma_shape,Gamma_rate)
+			# prior on times of rate shift
+			prior += -log(max_time-min_time)*(len(L)-1+len(M)-1)
+			# prior on 
+			if priorPoi != 0: 
+				prior += priorPoi
+			else: 
+				prior += priorPoiA
+				priorPoi = priorPoiA
 			if gibbs==0:
 				lik = sum(vect_lik(L[indL],M[indM]))
 			else: 
@@ -319,6 +332,7 @@ def runMCMC(arg):
 			# update lik, prior
 			likA,priorA = lik, prior
 			indLA,indMA = indL, indM
+			priorPoiA = priorPoi
 		
 		if iteration % s_freq ==0:
 			# MCMC log
@@ -332,9 +346,7 @@ def runMCMC(arg):
 			log_state = map(str,list(M_acc) + list(timesMA[1:len(timesMA)-1]))
 			ex_logfile.write('\t'.join(log_state)+'\n')
 			ex_logfile.flush()
-			
-			# write to log file
-			pass
+		
 		if iteration % p_freq ==0:
 			print iteration, likA, priorA
 			# print on screen
@@ -342,7 +354,6 @@ def runMCMC(arg):
 			print "\tex.times:", timesMA
 			print "\tsp.rates:", L_acc
 			print "\tex.rates:", M_acc
-	
 		
 		iteration +=1 
 
@@ -386,6 +397,9 @@ elif args.present_year==0: # find max year and set to present
 else: # user-spec present year
 	ts = args.present_year - ts_years 
 	te = args.present_year - te_years 
+
+ts,te = np.round(ts),np.round(te)
+
 
 max_time = max(ts)
 min_time = min(te)
@@ -438,7 +452,7 @@ min_allowed_t = 1   # minimum allowed distance between shifts (to avoid numerica
 Gamma_shape = 2.    # shape parameter of Gamma prior on B/D rates
 hpGamma_shape = 1.2 # shape par of Gamma hyperprior on rate of Gamma priors on B/D rates
 hpGamma_rate =  0.1 # rate par of Gamma hyperprior on rate of Gamma priors on B/D rates
-
+rev_bins = bins[::-1]+0.1
 
 check_lik = 0 # debug (set to 1 to compare vectorized likelihood against 'traditional' one)
 runMCMC([L_acc,M_acc,timesLA,timesMA])
