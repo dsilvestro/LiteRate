@@ -163,6 +163,22 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
 	out_str += "\nabline(h=bf6, lty=2)"
 	return out_str
 
+def get_K_values(mcmc_tbl,head,col,par,burnin=0.2):
+	burnin=min(int(burnin*len(mcmc_tbl)),int(0.9*len(mcmc_tbl)))
+	post_tbl = mcmc_tbl[burnin:,:]
+	h1 = head.index("K_l")
+	h2 = head.index("K_m")
+	if par=="l": h = h1
+	else: h = h2
+	print h
+	unique, counts = np.unique(post_tbl[:,h], return_counts=True)
+	print unique, counts
+	out_str  = print_R_vec("\nunique",unique)
+	out_str += print_R_vec("\ncounts",counts)
+	out_str += "\nplot(unique,counts,type = 'h', xlim = c(0,%s), ylab = 'Frequency', xlab = 'n. shifts',lwd=5,col='%s')" \
+	    % (np.max(post_tbl[:,np.array([h1,h2])])+1,col)
+	return out_str
+	
 
 def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,max_age=0,logT=0):
 	direct="%s/*%s*mcmc.log" % (path_dir,name_tag)
@@ -175,7 +191,7 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 	if logT==1: outname = "Log_"
 	else: outname = ""
 	if max_age>0: outname+= "t%s" % (int(max_age))
-	r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=10, height=10)\npar(mfrow=c(2,2))\nlibrary(scales)" % (wd,outname)
+	r_str = "\n\npdf(file='%s/%sRTT_plots.pdf',width=15, height=10)\npar(mfrow=c(2,3))\nlibrary(scales)" % (wd,outname)
 	for mcmc_file in files:
 		if 2>1: #try:
 			name_file = os.path.splitext(os.path.basename(mcmc_file))[0]		
@@ -189,10 +205,12 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 			nbins = int((max_age_t-min_age_t)/float(bin_size))
 			colors = ["#4c4cec","#e34a33"] # sp and ex rate
 			# sp file
+			r_str += get_K_values(tbl,head,colors[0],"l",burnin=0.2)
 			f_name = mcmc_file.replace("mcmc.log","sp_rates.log")
 			res = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=0.2)
 			r_str += get_r_plot(res,col=colors[0],parameter="Speciation rate",min_age=min_age_t,max_age=max_age_t,plot_title=name_file,plot_log=logT)
 			# ex file
+			r_str += get_K_values(tbl,head,colors[1],"m",burnin=0.2)
 			f_name = mcmc_file.replace("mcmc.log","ex_rates.log")
 			res = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=0.2)
 			r_str += get_r_plot(res,col=colors[1],parameter="Extinction rate",min_age=min_age_t,max_age=max_age_t,plot_title="",plot_log=logT,run_simulation=0)
@@ -215,8 +233,5 @@ p.add_argument('input_data', metavar='<path to log files>', type=str,help='Input
 p.add_argument('-logT', metavar='1', type=int,help='set to 1 to log transform rates',default=0)
 
 args = p.parse_args()
-
-
-
 path_dir_log_files = args.input_data
 plot_marginal_rates(path_dir_log_files,logT=args.logT)
