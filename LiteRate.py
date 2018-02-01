@@ -107,14 +107,8 @@ def get_post_rj_HP(xl,xm): # returns rate parameter for the Poisson distribution
 	#print "Mean Poi_lambda:", a/b
 	return Poi_lambda_rjHP
 
-def Poisson_prior(k,rate):
-	return k*log(rate) - rate - sum(log(np.arange(1,k+1)))
 
-####### END FUNCTIONS for RJMCMC #######
-
-
-# LIKELIHOOD FUNCTIONS
-
+####### LIKELIHOOD FUNCTIONS #######
 
 def BD_partial_lik(arg):
 	# time window defined by up and lo (max/min ages)
@@ -131,7 +125,16 @@ def BD_partial_lik(arg):
 	lik= log(rate)*no_events -rate*sum(n_S)
 	return lik
 
-### VECTORIZED LIK FUNCTIONS
+def get_BDlik(times,rates,par):
+	lik =0
+	for i in range(len(rates)):
+		up = times[i]
+		lo = times[i+1]
+		rate = rates[i]
+		lik += BD_partial_lik([up,lo,rate,par])
+	return lik
+
+# VECTORIZED LIK FUNCTIONS
 def get_sp_in_frame_br_length(up,lo):
 	# index species present in time frame
 	n_all_inframe = np.intersect1d((ts >= lo).nonzero()[0], (te <= up).nonzero()[0])
@@ -173,19 +176,11 @@ def vect_lik(L_acc_vec,M_acc_vec):
 		Dlik = sum(log(M_acc_vec)*ex_events_bin - M_acc_vec*br_length_bin) 
 	except:
 		print len(L_acc_vec),len(M_acc_vec),len(sp_events_bin)
+		sys.exit()
 	return sum(Blik)+sum(Dlik)
 
-def get_BDlik(times,rates,par):
-	lik =0
-	for i in range(len(rates)):
-		up = times[i]
-		lo = times[i+1]
-		rate = rates[i]
-		lik += BD_partial_lik([up,lo,rate,par])
-	return lik
-# END LIK FUNCTIONS
 
-# PROPOSALS
+####### PROPOSALS #######
 def update_multiplier_freq(q,d=1.1,f=0.75):
 	S=np.shape(q)
 	ff=np.random.binomial(1,f,S)
@@ -218,7 +213,9 @@ def update_times(times):
 	#	rS[i]=update_parameter(times[i])	
 	return np.sort(rS)[::-1]
 
-# PRIORS
+####### PRIORS #######
+def Poisson_prior(k,rate):
+	return k*log(rate) - rate - sum(log(np.arange(1,k+1)))
 
 def prior_gamma(L,a=2,b=2):  
 	return sum(scipy.stats.gamma.logpdf(L, a, scale=1./b,loc=0))
@@ -229,13 +226,10 @@ def prior_normal(L,sd):
 def prior_exponential(L,rate): 
 	return sum(scipy.stats.expon.logpdf(L, scale=1./rate))
 
-def get_rate_HP(l,m):
+def get_rate_HP(l,m): 
 	rates = np.array(list(l)+list(m))
-	hpGamma_shape = 1.2 # hyperprior is essentially flat
-	hpGamma_rate =  0.1
 	post_rate_prm = np.random.gamma( shape=hpGamma_shape+Gamma_shape*len(rates), scale=1./(hpGamma_rate+sum(rates)) )
 	return post_rate_prm
-# prior = sum(prior_gamma(q_rates,pert_prior[0],post_rate_prm_Gq))
 
 # MCMC looop
 def runMCMC(arg):
@@ -399,13 +393,17 @@ else: # user-spec present year
 
 
 
-ts=np.round(t_file[:,2]+1)
+ts=np.round(t_file[:,2])
 te=np.round(t_file[:,3])
 
 max_time = max(ts)
 min_time = min(te)
 
 out_dir= os.path.dirname(f)
+
+print out_dir
+if out_dir=="": 
+	out_dir= os.getcwd()
 file_name = os.path.splitext(os.path.basename(f))[0]
 
 # MCMC log files
@@ -446,8 +444,10 @@ timesMA = np.array([max_time, min_time])
 
 # GLOBAL VAR
 min_allowed_t = 1
-Gamma_shape = 2. # shape parameter of Gamma prior on rates
+Gamma_shape = 2. # shape parameter of Gamma prior on B/D rates
+hpGamma_shape = 1.2 # shape par of Gamma hyperprior on rate of Gamma priors on B/D rates
+hpGamma_rate =  0.1 # rate par of Gamma hyperprior on rate of Gamma priors on B/D rates
 
 
-check_lik = 0 # debug
+check_lik = 0 # debug (set to 1 to compare vectorized likelihood against 'traditional' one)
 runMCMC([L_acc,M_acc,timesLA,timesMA])
