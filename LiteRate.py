@@ -16,6 +16,7 @@ import scipy.stats
 np.set_printoptions(suppress=True)
 np.set_printoptions(precision=3)  
 shape_beta_RJ = 10.
+print "\n\n             LiteRate - 20180201\n"
 
 ####### BEGIN FUNCTIONS for RJMCMC #######
 def prior_sym_beta(x,a): 
@@ -231,7 +232,7 @@ def get_rate_HP(l,m):
 	post_rate_prm = np.random.gamma( shape=hpGamma_shape+Gamma_shape*len(rates), scale=1./(hpGamma_rate+sum(rates)) )
 	return post_rate_prm
 
-# MCMC looop
+####### MCMC looop #######
 def runMCMC(arg):
 	# initial values of rates, and times
 	[L_acc, M_acc, timesLA, timesMA]  = arg
@@ -345,21 +346,16 @@ def runMCMC(arg):
 		
 		iteration +=1 
 
-
-
-
-
-
-########
+####### parse arguments #######
 p = argparse.ArgumentParser() #description='<input file>') 
 
 p.add_argument('-v',       action='version', version='%(prog)s')
 p.add_argument('-d',       type=str, help='data file', default="", metavar="") 
 p.add_argument('-n',       type=int, help='n. MCMC iterations', default=10000000, metavar=10000000)
-p.add_argument('-p',       type=int, help='print freq', default=1000, metavar=1000) 
-p.add_argument('-s',       type=int, help='sampling freq', default=100, metavar=100) 
-p.add_argument('-seed',    type=int, help='random seed', default= 1, metavar= 1)
-p.add_argument('-present_year',    type=int, help="""Set to: -1 for standard pyrate datasets (time BP), \
+p.add_argument('-p',       type=int, help='print frequency', default=1000, metavar=1000) 
+p.add_argument('-s',       type=int, help='sampling frequency', default=1000, metavar=1000) 
+p.add_argument('-seed',    type=int, help='seed (set to -1 to make it random)', default= 1, metavar= 1)
+p.add_argument('-present_year',    type=int, help="""set to: -1 for standard pyrate datasets (time BP), \
 0: time AD and present set to most recent TE, 1: time AD present user defined """, default= -1, metavar= -1)
 
 args = p.parse_args()
@@ -376,7 +372,7 @@ s_freq = args.s
 p_freq = args.p
 
 
-# DATA
+####### Parse DATA #######
 f = args.d
 t_file=np.loadtxt(f, skiprows=1)
 ts_years = t_file[:,2]
@@ -391,11 +387,6 @@ else: # user-spec present year
 	ts = args.present_year - ts_years 
 	te = args.present_year - te_years 
 
-
-
-ts=np.round(t_file[:,2])
-te=np.round(t_file[:,3])
-
 max_time = max(ts)
 min_time = min(te)
 
@@ -406,7 +397,7 @@ if out_dir=="":
 	out_dir= os.getcwd()
 file_name = os.path.splitext(os.path.basename(f))[0]
 
-# MCMC log files
+####### MCMC log files #######
 out_dir = "%s/pyrate_mcmc_logs" % (out_dir)
 try: os.mkdir(out_dir) 
 except: pass
@@ -419,7 +410,7 @@ sp_logfile = open(out_log , "w",0)
 out_log = "%s/%s_ex_rates.log" % (out_dir, file_name)
 ex_logfile = open(out_log , "w",0) 
 
-# PRECOMPUTE VECTORS
+####### PRECOMPUTE VECTORS #######
 sp_events_bin = []
 ex_events_bin = []
 br_length_bin = []
@@ -436,15 +427,15 @@ br_length_bin = np.array(br_length_bin)
 
 n_bins = len(sp_events_bin)
 
-# init parameters
+####### init parameters #######
 L_acc= np.random.gamma(2,2,1)
 M_acc= np.random.gamma(2,2,1)
 timesLA = np.array([max_time, min_time])
 timesMA = np.array([max_time, min_time])
 
-# GLOBAL VAR
-min_allowed_t = 1
-Gamma_shape = 2. # shape parameter of Gamma prior on B/D rates
+####### GLOBAL variables #######
+min_allowed_t = 1   # minimum allowed distance between shifts (to avoid numerical issues)
+Gamma_shape = 2.    # shape parameter of Gamma prior on B/D rates
 hpGamma_shape = 1.2 # shape par of Gamma hyperprior on rate of Gamma priors on B/D rates
 hpGamma_rate =  0.1 # rate par of Gamma hyperprior on rate of Gamma priors on B/D rates
 
