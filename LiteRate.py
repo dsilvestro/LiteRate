@@ -365,7 +365,8 @@ p.add_argument('-n',       type=int, help='n. MCMC iterations', default=10000000
 p.add_argument('-p',       type=int, help='print freq', default=1000, metavar=1000) 
 p.add_argument('-s',       type=int, help='sampling freq', default=100, metavar=100) 
 p.add_argument('-seed',    type=int, help='random seed', default= 1, metavar= 1)
-p.add_argument('-present_year',    type=int, help='random seed', default= -1, metavar= -1)
+p.add_argument('-present_year',    type=int, help="""Set to: -1 for standard pyrate datasets (time BP), \
+0: time AD and present set to most recent TE, 1: time AD present user defined """, default= -1, metavar= -1)
 
 args = p.parse_args()
 
@@ -379,7 +380,6 @@ np.random.seed(rseed)
 n_iterations = args.n
 s_freq = args.s
 p_freq = args.p
-
 
 
 # DATA
