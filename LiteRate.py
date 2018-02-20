@@ -439,6 +439,13 @@ sp_events_bin = np.array(sp_events_bin)
 ex_events_bin = np.array(ex_events_bin)
 br_length_bin = np.array(br_length_bin)
 
+# remove first bin
+sp_events_bin = sp_events_bin[1:]
+ex_events_bin = ex_events_bin[1:]
+br_length_bin = br_length_bin[1:]
+max_time -= 1
+
+
 n_bins = len(sp_events_bin)
 
 ####### init parameters #######
