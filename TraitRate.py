@@ -208,6 +208,16 @@ def update_multiplier_freq(q,d=1.1,f=0.75):
 	U=sum(log(m))
 	return new_q,U
 
+def update_multiplier(q,d=1.1):
+	u = np.random.uniform(0,1)
+	l = 2*log(d)
+	m = exp(l*(u-.5))
+	# new vector of rates
+ 	new_q = q * m
+	# Hastings ratio
+	U=sum(log(m))
+	return new_q,U
+
 def update_sliding_win(i, d = 1): 
 	# boundaries within which we can have a rate shift
 	m, M = min_time, max_time
@@ -220,6 +230,10 @@ def update_sliding_win(i, d = 1):
 
 def update_sliding_win_unbounded(i, d = 1): 
 	ii = i+(np.random.random()-.5)*d
+	return ii
+
+def update_sliding_win_unbounded_vec(i, d = 1): 
+	ii = i+(np.random.random(len(i))-.5)*d
 	return ii
 
 def update_times(times):
@@ -426,20 +440,36 @@ tr_waiting_times =[]
 tr_birth_events =[]
 tr_death_events =[]
 
-
+list_all_values = []
 for i in species_durations:
 	species_trait_array = np.sort(np.random.normal(0,2,int(i)) )# sort them to check effects on correlation parameters
-	#species_trait_array = np.random.normal(0,2,int(i)) 
+	species_trait_array = np.random.normal(0,2,int(i)) 
+	list_all_values += list(species_trait_array)
 	trait_list_of_arrays.append(species_trait_array)
 	tr_waiting_times += list(species_trait_array) # all trait values
 	tr_birth_events  += [species_trait_array[0]] # trait value at origination
 	tr_death_events  += [species_trait_array[-1]] # trait value at extinction
 
 
+# rescale trait data (so they range between 0 and 1)
+tr_waiting_times =[]
+tr_birth_events =[]
+tr_death_events =[]
+for i in range(len(species_durations)):
+	species_trait_array_original = trait_list_of_arrays[i]	
+	species_trait_array = species_trait_array_original/(max(list_all_values)-min(list_all_values))
+	species_trait_array -= min(list_all_values)/(max(list_all_values)-min(list_all_values))
+	#print min(species_trait_array),max(species_trait_array)
+	trait_list_of_arrays.append(species_trait_array)
+	tr_waiting_times += list(species_trait_array) # all trait values
+	tr_birth_events  += [species_trait_array[0]] # trait value at origination
+	tr_death_events  += [species_trait_array[-1]] # trait value at extinction
+
+
+
 tr_waiting_times = np.array(tr_waiting_times)
 tr_birth_events  = np.array(tr_birth_events )
 tr_death_events  = np.array(tr_death_events )[te>0]
-
 
 
 def tranform_rate_exp(r0,alpha,trait):
@@ -450,28 +480,67 @@ def tranform_rate_lin(r0,alpha,trait):
 	new_rate[new_rate<0.00001] = 0.00001
 	return new_rate
 
+def transform_rate_beta(r0,prm,trait):
+	alpha,beta = prm
+	return r0 + r0*scipy.stats.beta.pdf(trait, alpha,beta)
+
+def transform_rate_normal(r0,prm,trait):
+	mu,sd,sign = prm
+	pdf_at_mode = 1./sqrt( 2*np.pi*(sd**2) )
+	return abs(r0 * sign-(scipy.stats.norm.pdf(trait, loc=mu,scale=sd)/pdf_at_mode))
+
+
 tranform_rate_func = tranform_rate_exp
 #tranform_rate_func = tranform_rate_lin
+#tranform_rate_func = transform_rate_normal
+tranform_rate_func = transform_rate_beta
 
 # init params
 l0A=np.array([0.2])
 m0A=np.array([0.1])
 alphaLA=np.array([0.])
 alphaMA=np.array([0.])
+
+alphaLA=np.array([1.,1.])
+alphaMA=np.array([1.,1.])
+
+
+#alphaLA=np.array([0.,1.,0])
+#alphaMA=np.array([0.,1.,0])
+
+
 likA = get_likelihood_continuous_trait(l0A,m0A,alphaLA,alphaMA,tranform_rate_func)
+print likA
 
 n_iterations=10000
 iteration = 0
 while iteration < n_iterations:
-	l0,m0,alphaL,alphaM = l0A,m0A,alphaLA,alphaMA
-	rr = np.random.random()
-	if rr < 0.2:
+	l0,m0,alphaL,alphaM = l0A+0,m0A+0,alphaLA+0,alphaMA+0
+	rr = np.random.random(3)
+	if rr[0] < 0.2:
 		l0,hasting= update_multiplier_freq(l0A,f=1)
-	elif rr < 0.4:
+	elif rr[0] < 0.4:
 		m0,hasting= update_multiplier_freq(m0A,f=1)
 	else:
-		alphaL= update_sliding_win_unbounded(alphaLA,d=0.1)
-		alphaM= update_sliding_win_unbounded(alphaMA,d=0.1)
+		alphaL= update_sliding_win_unbounded_vec(alphaLA,d=0.1)
+		alphaM= update_sliding_win_unbounded_vec(alphaMA,d=0.1)
+		#if rr[1]<0.33:
+		#	alphaL[0] = update_sliding_win_unbounded(alphaLA[0],d=0.1)
+		#	alphaM[0] = update_sliding_win_unbounded(alphaMA[0],d=0.1)
+		#elif rr[1]<0.66:
+		#	alphaL[1],hasting1 = update_multiplier(alphaLA[1])
+		#	alphaM[1],hasting2 = update_multiplier(alphaMA[1])
+		#	
+		#	alphaL[1] += 2
+		#	alphaM[1] += 2
+		#	hasting = hasting1 + hasting2
+		#else:
+		#	if rr[2]<0.5: 
+		#		alphaL[2] = abs(1-alphaL[2])
+		#	else:
+		#		alphaM[2] = abs(1-alphaM[2])
+		#
+		
 	
 	lik = get_likelihood_continuous_trait(l0,m0,alphaL,alphaM,tranform_rate_func)
 	if lik-likA + hasting >= log(np.random.random()):
@@ -481,7 +550,7 @@ while iteration < n_iterations:
 		alphaLA= alphaL
 		alphaMA= alphaM
 	if iteration % 100==0: 
-		print iteration,likA,l0A,m0A,alphaLA,alphaMA
+		print iteration,likA,lik,l0A,m0A,alphaLA,alphaMA
 	iteration+=1
 	
 
