@@ -451,7 +451,7 @@ tr_death_events =[]
 list_all_values = []
 for i in species_durations:
 	species_trait_array = np.sort(np.random.normal(0,2,int(i)) )           # skewed values
-	species_trait_array = np.sort(np.random.uniform(0,1,int(i)) )          # severely skewed values
+	species_trait_array = np.sort(np.random.uniform(-5,5,int(i)) )          # severely skewed values
 	#species_trait_array = np.random.normal(0,2,int(i))                     # no effects	
 	#species_trait_array = np.random.uniform(0,1,int(i))                    # no effects	
 	#species_trait_array = np.abs(np.sort(np.random.uniform(-1,1,int(i)) )) # large values in the extremes
@@ -484,29 +484,6 @@ for i in species_durations:
 	tr_death_events  += [species_trait_array[-1]] # trait value at extinction
 
 
-# rescale trait data (so they range between 0 and 1)
-tr_waiting_times =[]
-tr_birth_events =[]
-tr_death_events =[]
-margin = 0.001 # rescaled so the never are exactly 0 or 1
-for i in range(len(species_durations)):
-	species_trait_array_original = trait_list_of_arrays[i]	
-	species_trait_array = species_trait_array_original/(2*margin +max(list_all_values)-min(list_all_values))
-	species_trait_array -= min(list_all_values)/(max(list_all_values)-min(list_all_values))-0.5*margin
-	#print min(species_trait_array),max(species_trait_array)
-	trait_list_of_arrays.append(species_trait_array)
-	tr_waiting_times += list(species_trait_array) # all trait values
-	tr_birth_events  += [species_trait_array[0]] # trait value at origination
-	tr_death_events  += [species_trait_array[-1]] # trait value at extinction
-
-
-
-
-
-
-tr_waiting_times = np.array(tr_waiting_times)
-tr_birth_events  = np.array(tr_birth_events )
-tr_death_events  = np.array(tr_death_events )[te>0]
 
 
 def tranform_rate_exp(r0,alpha,trait):
@@ -542,7 +519,6 @@ def transform_rate_beta_rescaled_truncated(r0,prm,trait):
 		rescaled_pdf[beta_pdf>1] = 1.
 	return  r0 + r0*rescaled_pdf
 
-
 def transform_rate_beta_rescaled_truncated_unnormalized(r0,prm,trait):
 	alpha,beta = prm
 	beta_pdf = trait**(alpha-1)*(1-trait)**(beta-1)
@@ -558,8 +534,6 @@ def transform_rate_beta_rescaled_truncated_unnormalized(r0,prm,trait):
 		rescaled_pdf[beta_pdf>1] = 1.
 	return  r0 + r0*rescaled_pdf
 
-
-
 def transform_rate_beta_rescaled_truncated_indicator(r0,prm,trait):
 	alpha,beta,convex = prm
 	if convex==1:
@@ -574,20 +548,52 @@ def transform_rate_beta_rescaled_truncated_indicator(r0,prm,trait):
 		rescaled_pdf[beta_pdf>1] = 1.
 	return  r0 + r0*rescaled_pdf
 
-
-
-
 def transform_rate_normal(r0,prm,trait):
 	mu,sd,sign = prm
 	pdf_at_mode = 1./sqrt( 2*np.pi*(sd**2) )
 	return abs(r0 * sign-(scipy.stats.norm.pdf(trait, loc=mu,scale=sd)/pdf_at_mode))
 
-runBETA=1
+def transform_rate_logistic(r0,prm,trait):
+	# r0 is the max rate
+	x0,k = prm # mid point and steepness
+	rate_at_trait = r0 / ( 1. + exp( -k * (trait-x0) )    )
+	return rate_at_trait
+
+
+
+
+runBETA=0
+runLogistic=1
 tranform_rate_func = tranform_rate_exp
+if runLogistic: tranform_rate_func = transform_rate_logistic
 #tranform_rate_func = tranform_rate_lin
 #tranform_rate_func = transform_rate_normal
-if runBETA: tranform_rate_func = transform_rate_beta_rescaled_truncated_unnormalized
 #transform_rate_beta_rescaled_truncated
+if runBETA: 
+	tranform_rate_func = transform_rate_beta_rescaled_truncated_unnormalized
+	trait_list_of_arrays_rescaled = []
+	# rescale trait data (so they range between 0 and 1)
+	tr_waiting_times =[]
+	tr_birth_events =[]
+	tr_death_events =[]
+	margin = 0.001 # rescaled so the never are exactly 0 or 1
+	denom = (max(list_all_values)-min(list_all_values))
+	for i in range(len(species_durations)):
+		#species_trait_array_original = trait_list_of_arrays[i]- min(list_all_values)
+		species_trait_array = trait_list_of_arrays[i]/(margin +denom)
+		species_trait_array = species_trait_array-min(species_trait_array) # curve rescaled between 0 and 1
+		#print min(species_trait_array),max(species_trait_array)
+		trait_list_of_arrays_rescaled.append(species_trait_array)
+		tr_waiting_times += list(species_trait_array) # all trait values
+		tr_birth_events  += [species_trait_array[0]] # trait value at origination
+		tr_death_events  += [species_trait_array[-1]] # trait value at extinction
+
+#covert to array
+tr_waiting_times = np.array(tr_waiting_times)
+tr_birth_events  = np.array(tr_birth_events )
+tr_death_events  = np.array(tr_death_events )[te>0]
+
+
 
 # init params
 l0A=np.array([0.2])
@@ -598,7 +604,9 @@ alphaMA=np.array([0.])
 if runBETA:
 	alphaLA=np.array([1.1,1.1])
 	alphaMA=np.array([1.1,1.1])
-convexA = np.ones(2)
+elif runLogistic:
+	alphaLA=np.array([0,1.])
+	alphaMA=np.array([0,1.])
 
 #alphaLA=np.array([0.,1.,0])
 #alphaMA=np.array([0.,1.,0])
@@ -606,7 +614,10 @@ out_dir= os.getcwd()
 file_name = "test"
 out_log = "%s/%s_mcmc.log" % (out_dir, file_name)
 mcmc_logfile = open(out_log , "w",0) 
-mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_0","mu_0","alpha_l","beta_l","alpha_m","beta_m"])+'\n')
+if runBETA:
+	mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_0","mu_0","alpha_l","beta_l","alpha_m","beta_m"])+'\n')
+elif runLogistic:
+	mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_0","mu_0","x0_l","kappa_l","x0_m","kappa_m"])+'\n')
 
 
 Gamma_shape,Gamma_rate = 1.,1.
@@ -614,14 +625,22 @@ priorA =  prior_gamma(l0A,Gamma_shape,Gamma_rate) + prior_gamma(m0A,Gamma_shape,
 #priorA += prior_normal(log(alphaLA),.1) + prior_normal(log(alphaMA),.1)
 
 likA = get_likelihood_continuous_trait(l0A,m0A,alphaLA,alphaMA,tranform_rate_func)
-#likA = get_likelihood_continuous_trait(l0A,m0A,np.append(alphaLA,convexA[0]),np.append(alphaMA,convexA[1]),tranform_rate_func)
+
+print min(tranform_rate_func(m0A,alphaMA,tr_waiting_times)),max(tranform_rate_func(m0A,alphaMA,tr_waiting_times))
+
+
+x= tranform_rate_func(l0A,alphaLA,tr_waiting_times)
+print x, l0A,alphaLA
+#np.argwhere(np.isnan(x)), tr_waiting_times[np.argwhere(np.isnan(x))]
+
+#quit()
+
 print likA,priorA
 
 n_iterations=100000
 iteration = 0
 while iteration < n_iterations:
 	l0,m0,alphaL,alphaM = l0A+0,m0A+0,alphaLA+0,alphaMA+0
-	convex = convexA+0.
 	hasting = 0 
 	rr = np.random.random(3)
 	if rr[0] < 0.2:
@@ -635,16 +654,17 @@ while iteration < n_iterations:
 				alphaL,hasting= update_multiplier_freq(alphaLA,d=1.05,f=1)
 			else:
 				alphaM,hasting= update_multiplier_freq(alphaMA,d=1.05,f=1)
+		elif runLogistic:
+			d_win = np.array([0.5,0.1])
+			if rr[2]<0.5:
+				alphaL= update_sliding_win_unbounded_vec(alphaLA,d=d_win)
+			else:
+				alphaM= update_sliding_win_unbounded_vec(alphaMA,d=d_win)
+			
 		else:
 			alphaL= np.abs(update_sliding_win_unbounded_vec(alphaLA,d=0.1))
 			alphaM= np.abs(update_sliding_win_unbounded_vec(alphaMA,d=0.1))
 		
-			
-		#else:
-		#	if rr[2]<0.5:
-		#		convex[0] = abs(1-convexA[0])
-		#	else:
-		#		convex[1] = abs(1-convexA[1])
 		
 			
 	prior =  prior_gamma(l0,Gamma_shape,Gamma_rate) + prior_gamma(m0,Gamma_shape,Gamma_rate)	
@@ -658,7 +678,6 @@ while iteration < n_iterations:
 	
 	else:
 		lik = get_likelihood_continuous_trait(l0,m0,alphaL,alphaM,tranform_rate_func)
-		#lik = get_likelihood_continuous_trait(l0,m0,np.append(alphaL,convex[0]),np.append(alphaM,convex[1]),tranform_rate_func)
 		
 	
 	if lik-likA + prior-priorA + hasting >= log(np.random.random()):
@@ -668,7 +687,6 @@ while iteration < n_iterations:
 		m0A= m0
 		alphaLA= alphaL
 		alphaMA= alphaM
-		convexA= convex
 		
 	if iteration % 100==0: 
 		print iteration,likA,lik,l0A,m0A,alphaLA,alphaMA #,convexA
