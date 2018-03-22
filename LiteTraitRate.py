@@ -158,7 +158,7 @@ def precompute_events(arg):
 	n_S = get_sp_in_frame_br_length(up,lo)
 	return len(L_events), len(M_events), sum(n_S)
 	
-def get_rate_index(times):
+def get_rate_index(times,n_bins):
 	if len(times)==2: 
 		ind =np.zeros(n_bins).astype(int)
 	else:
@@ -175,7 +175,7 @@ def get_rate_index(times):
 		#ind = np.cumsum(h)
 	return ind
 
-def vect_lik(L_acc_vec,M_acc_vec):
+def vect_lik(L_acc_vec,M_acc_vec,sp_events_bin,ex_events_bin,br_length_bin):
 	# BD likelihood
 	try:
 		Blik = sum(log(L_acc_vec)*sp_events_bin - L_acc_vec*br_length_bin) 
@@ -194,7 +194,6 @@ def get_likelihood_continuous_trait(l0,m0,alphaL,alphaM,tranf_rate_func):
 	#print lik1,lik2,lik3,lik4,l0,m0,alphaL,alphaM
 	return lik1+lik2+lik3+lik4
 
-
 def get_likelihood_continuous_trait_vect(l0,m0,alphaL,alphaM,tranf_rate_func,list_indx):
 	[ind_l2,ind_l1,ind_m2,ind_m1] = list_indx
 	lik1 = sum(log(tranf_rate_func(l0[ind_l1],alphaL,tr_birth_events)))
@@ -204,7 +203,42 @@ def get_likelihood_continuous_trait_vect(l0,m0,alphaL,alphaM,tranf_rate_func,lis
 	#print lik1,lik2,lik3,lik4,l0,m0,alphaL,alphaM
 	return lik1+lik2+lik3+lik4
 
+####### TRAIT-DEPENDENT FUNCTIONS ######## 
+def transform_rate_logistic(r0,prm,trait):
+	# r0 is the max rate
+	x0,k = prm # mid point and steepness
+	rate_at_trait = r0 / ( 1. + exp( -k * (trait-x0) )    )
+	return rate_at_trait
 
+def map_trait_time(ts,te,trait_list):
+	tm_waiting_times =list()
+	tm_birth_events  =list()
+	tm_death_events  =list()
+	for i in range(len(ts)):
+		tm_waiting_times += range(te[i],ts[i]+1)
+		tm_birth_events  += [ts[i]]
+		if te[i]> 0: tm_death_events  += [te[i]] # only add if taxon is extinct
+	
+	tm_waiting_times = np.array(tm_waiting_times)	
+	tm_birth_events  = np.array(tm_birth_events )	
+	tm_death_events  = np.array(tm_death_events )	
+		
+	return tm_waiting_times,tm_birth_events,tm_death_events
+
+def get_rate_index_trait(times,tm_events):
+	
+	indx_tm_waiting_times = np.zeros(len(tm_waiting_times)).astype(int)
+	indx_tm_events  = np.zeros(len(tm_events)).astype(int)
+	
+	for i in range(2,len(times)):
+		t0= times[i-1]
+		t1= times[i]
+		indx = i
+		indx_tm_waiting_times[tm_waiting_times>t0]= indx_tm_waiting_times[tm_waiting_times>t0]+1
+		indx_tm_events[tm_events>t0]  = indx_tm_events[tm_events>t0]  +1
+	
+	return np.array(indx_tm_waiting_times),np.array(indx_tm_events)
+	
 ####### PROPOSALS #######
 def update_multiplier_freq(q,d=1.1,f=0.75):
 	S=np.shape(q)
@@ -277,31 +311,70 @@ def get_rate_HP(l,m):
 
 ####### MCMC looop #######
 def runMCMC(arg):
-	# initial values of rates, and times
+	# initial values of rates, times, correlations
 	[L_acc, M_acc, timesLA, timesMA]  = arg
 	Poi_lambda_rjHP = 1
 	Gamma_rate = 1
-	# init lik
-	indLA = get_rate_index(timesLA)
-	indMA = get_rate_index(timesMA)
-	likA = sum(vect_lik(L_acc[indLA],M_acc[indMA]))
-	#likA = get_BDlik(timesLA,L_acc,"l") + get_BDlik(timesMA,M_acc,"m")
+	alphaLA,alphaMA = np.zeros(2),np.zeros(2)
+	
+	# init priors
 	priorA = prior_gamma(L_acc) + prior_gamma(M_acc)
 	priorA += -log(max_time-min_time)*(len(L_acc)-1+len(M_acc)-1)
 	priorPoiA = Poisson_prior(len(L_acc),Poi_lambda_rjHP)+Poisson_prior(len(M_acc),Poi_lambda_rjHP)
 	priorA += priorPoiA
 	
+	# conpute index arrays for baseline rates
+	indx_tm_birth_waiting_timesA,indx_tm_birth_eventsA = get_rate_index_trait(timesLA,tm_birth_events)
+	indx_tm_death_waiting_timesA,indx_tm_death_eventsA = get_rate_index_trait(timesMA,tm_death_events)
+	
+	# init likelihood
+	list_indexes = [indx_tm_birth_waiting_timesA,indx_tm_birth_eventsA,indx_tm_death_waiting_timesA,indx_tm_death_eventsA]
+	likA = get_likelihood_continuous_trait_vect(L_acc,M_acc,alphaLA,alphaMA,tranform_rate_func,list_indexes)
+	
+	# check likelihood LiteRate
+	# sp_events_bin = []
+	# ex_events_bin = []
+	# br_length_bin = []
+	# bins = np.arange(min_time,max_time+1)[::-1]
+	# for i in range(len(bins)-1):
+	# 	a,b,c = precompute_events([bins[i],bins[i+1]])
+	# 	sp_events_bin.append(a)
+	# 	ex_events_bin.append(b)
+	# 	br_length_bin.append(c)
+      # 
+	# sp_events_bin = np.array(sp_events_bin)
+	# ex_events_bin = np.array(ex_events_bin)
+	# br_length_bin = np.array(br_length_bin)
+	# n_bins = len(sp_events_bin)
+	# 
+	# # remove first bin
+	# sp_events_bin = sp_events_bin[1:]
+	# ex_events_bin = ex_events_bin[1:]
+	# br_length_bin = br_length_bin[1:]
+	# #max_time = max_time-1
+	# indLA = get_rate_index(timesLA,n_bins)
+	# indMA = get_rate_index(timesMA,n_bins)
+	# L_acc,M_acc = L_acc/2.,M_acc/2.
+	# likA_no_trait = sum(vect_lik(L_acc[indLA],M_acc[indMA],sp_events_bin,ex_events_bin,br_length_bin))
+	# print "WEGFDS", likA, likA_no_trait
+	# quit()
+	
+	
+	
+	
+	
 	iteration = 0
 	while iteration < n_iterations:		
-		r = np.random.random(2)
+		r = np.random.random(3)
 		L,timesL = L_acc+0,timesLA+0
 		M,timesM = M_acc+0,timesMA+0
-		indL =indLA
-		indM =indMA
+		alphaL,alphaM = alphaLA+0,alphaMA+0
+		indx_tm_birth_waiting_times,indx_tm_birth_events = indx_tm_birth_waiting_timesA+0,indx_tm_birth_eventsA+0
+		indx_tm_death_waiting_times,indx_tm_death_events = indx_tm_death_waiting_timesA+0,indx_tm_death_eventsA+0
 		hasting = 0
 		gibbs=0
 		priorPoi = 0
-		if r[0]< 0.4:
+		if r[0]< 0.25:
 			# update birth part
 			if r[1] < .5 or len(L_acc)==1:
 				# update rates
@@ -309,9 +382,9 @@ def runMCMC(arg):
 			else:
 				# update times (hastings = 0 because we are doing symmetric update)
 				timesL = update_times(timesLA)
-				indL = get_rate_index(np.floor(timesL))
+				indx_tm_birth_waiting_times,indx_tm_birth_events = get_rate_index_trait(timesL,tm_birth_events)
 			
-		elif r[0] < 0.8:
+		elif r[0] < 0.5:
 			# update M 
 			if r[1] < .5 or len(M_acc)==1:
 				# update rates
@@ -319,14 +392,23 @@ def runMCMC(arg):
 			else:
 				# update times (hastings = 0 because we are doing symmetric update)
 				timesM = update_times(timesMA)
-				indM = get_rate_index(np.floor(timesM))
+				indx_tm_death_waiting_times,indx_tm_death_events = get_rate_index_trait(timesM,tm_death_events)
 			
-		# elif r[0] < 0.99:
-		# 	# do RJ
-		# 	L,timesL, M,timesM, hasting, update_L = RJMCMC([L_acc,M_acc, timesLA, timesMA])
-		# 	if update_L==1: indL = get_rate_index(np.floor(timesL))
-		# 	else: indM = get_rate_index(np.floor(timesM))
-		# 	priorPoi = Poisson_prior(len(L),Poi_lambda_rjHP)+Poisson_prior(len(M),Poi_lambda_rjHP)
+		elif r[0] < 0.8 and args.model != 0:
+			d_win = np.array([0.5,0.1])
+			if r[2] < .5:
+				alphaL= update_sliding_win_unbounded_vec(alphaLA,d=d_win)
+			else:
+				alphaM= update_sliding_win_unbounded_vec(alphaMA,d=d_win)
+			
+		elif r[0] < 0.99:
+			# do RJ
+			L,timesL, M,timesM, hasting, update_L = RJMCMC([L_acc,M_acc, timesLA, timesMA])
+			if update_L==1: 
+				indx_tm_birth_waiting_times,indx_tm_birth_events = get_rate_index_trait(timesL,tm_birth_events)
+			else: 
+				indx_tm_death_waiting_times,indx_tm_death_events = get_rate_index_trait(timesM,tm_death_events)
+			priorPoi = Poisson_prior(len(L),Poi_lambda_rjHP)+Poisson_prior(len(M),Poi_lambda_rjHP)
 			
 		else: 
 			# update HPs 
@@ -344,14 +426,19 @@ def runMCMC(arg):
 			prior = prior_gamma(L,Gamma_shape,Gamma_rate) + prior_gamma(M,Gamma_shape,Gamma_rate)
 			# prior on times of rate shift
 			prior += -log(max_time-min_time)*(len(L)-1+len(M)-1)
-			# prior on 
+			# priors on logistic parameters
+			prior += prior_normal(alphaL[1],1)+prior_normal(alphaM[1],1)
+			if min([alphaL[0],alphaM[0]]) < allowed_x0_range[0] or max([alphaL[0],alphaM[0]]) > allowed_x0_range[1]:
+				prior = -np.inf
+			# prior on number of shifts
 			if priorPoi != 0: 
 				prior += priorPoi
 			else: 
 				prior += priorPoiA
 				priorPoi = priorPoiA
 			if gibbs==0:
-				lik = sum(vect_lik(L[indL],M[indM]))
+				list_indexes = [indx_tm_birth_waiting_times,indx_tm_birth_events,indx_tm_death_waiting_times,indx_tm_death_events]
+				lik = get_likelihood_continuous_trait_vect(L,M,alphaL,alphaM,tranform_rate_func,list_indexes)
 			else: 
 				lik = likA
 		
@@ -369,12 +456,14 @@ def runMCMC(arg):
 			L_acc, M_acc, timesLA, timesMA = L,M,timesL, timesM
 			# update lik, prior
 			likA,priorA = lik, prior
-			indLA,indMA = indL, indM
 			priorPoiA = priorPoi
+			alphaLA,alphaMA= alphaL,alphaM
+			indx_tm_birth_waiting_timesA,indx_tm_birth_eventsA = indx_tm_birth_waiting_times,indx_tm_birth_events
+			indx_tm_death_waiting_timesA,indx_tm_death_eventsA = indx_tm_death_waiting_times,indx_tm_death_events
 		
 		if iteration % s_freq ==0:
 			# MCMC log
-			log_state = map(str,[iteration,likA+priorA,likA,priorA,mean(L_acc),mean(M_acc),len(L_acc),len(M_acc),max_time,min_time,Gamma_rate,Poi_lambda_rjHP])
+			log_state = map(str,[iteration,likA+priorA,likA,priorA,mean(L_acc),mean(M_acc),len(L_acc),len(M_acc),alphaLA[0],alphaLA[1],alphaMA[0],alphaMA[1],max_time,min_time,Gamma_rate,Poi_lambda_rjHP])
 			mcmc_logfile.write('\t'.join(log_state)+'\n')
 			mcmc_logfile.flush()
 			# log marginal rates/times
@@ -392,6 +481,8 @@ def runMCMC(arg):
 			print "\tex.times:", timesMA
 			print "\tsp.rates:", L_acc
 			print "\tex.rates:", M_acc
+			print "\tsp.alpha:", alphaLA
+			print "\tex.alpha:", alphaMA
 		
 		iteration +=1 
 
@@ -401,6 +492,7 @@ p = argparse.ArgumentParser() #description='<input file>')
 p.add_argument('-v',       action='version', version='%(prog)s')
 p.add_argument('-d',       type=str, help='data file', default="", metavar="") 
 p.add_argument('-n',       type=int, help='n. MCMC iterations', default=10000000, metavar=10000000)
+p.add_argument('-model',   type=int, help='0: no correlation, 1: logistic correlation', default=1, metavar=1)
 p.add_argument('-p',       type=int, help='print frequency', default=1000, metavar=1000) 
 p.add_argument('-s',       type=int, help='sampling frequency', default=1000, metavar=1000) 
 p.add_argument('-seed',    type=int, help='seed (set to -1 to make it random)', default= 1, metavar= 1)
@@ -425,11 +517,11 @@ p_freq = args.p
 #f = args.d
 f = "/Users/danielesilvestro/Software/LiteRate/example_dataTAD.txt"
 t_file=np.loadtxt(f, skiprows=1)
-ts_years = t_file[:,2]
-te_years = t_file[:,3]
+ts_years = t_file[:,2].astype(int)
+te_years = t_file[:,3].astype(int)
 
-te_years = np.round(np.random.uniform(1950,2017,1000)).astype(int)
-ts_years = np.round(np.random.uniform(1950,te_years,1000)).astype(int)
+#te_years = np.round(np.random.uniform(1950,2017,1000)).astype(int)
+#ts_years = np.round(np.random.uniform(1950,te_years,1000)).astype(int)
 #
 
 
@@ -443,13 +535,12 @@ else: # user-spec present year
 	ts = args.present_year - ts_years 
 	te = args.present_year - te_years 
 
-ts,te = np.round(ts),np.round(te)
+#ts,te = np.round(ts),np.round(te)
 max_time = max(ts)
 min_time = min(te)
 
 
 
-# make up some trait data
 species_durations = (ts+1)-te # consider year of origination as a lived year
 
 trait_list_of_arrays  = []
@@ -460,33 +551,12 @@ tr_death_events =[]
 
 list_all_values = []
 for i in species_durations:
-	species_trait_array = np.sort(np.random.normal(0,2,int(i)) )           # skewed values
-	species_trait_array = np.sort(np.random.uniform(-5,5,int(i)) )          # severely skewed values
-	#species_trait_array = np.random.normal(0,2,int(i))                     # no effects	
-	#species_trait_array = np.random.uniform(0,1,int(i))                    # no effects	
-	#species_trait_array = np.abs(np.sort(np.random.uniform(-1,1,int(i)) )) # large values in the extremes
-	#species_trait_array = 1-np.abs(np.sort(np.random.uniform(-1,1,int(i)) )) # small values in the extremes
-	#
-	#
-	# sp/ex happen at large or small values (no intermediate)
-	#if np.random.random()<0.5:
-	#	species_trait_array = np.abs(np.sort(np.random.uniform(-1,1,int(i)) )) # large values in the extremes
-	#else:
-	#	species_trait_array = 1-np.abs(np.sort(np.random.uniform(-1,1,int(i)) )) # small values in the extremes
-	#	
+	# make up some trait data
+	species_trait_array = np.sort(np.random.normal(0,2,int(i)) )   # skewed values
+	species_trait_array = np.sort(np.random.uniform(-5,5,int(i)) ) # severely skewed values
+	#species_trait_array = np.random.uniform(-5,5,int(i))          # no trait effects	
 	
-	# sp/ex happen at large or small values (no intermediate)
-	#if np.random.random()<0.5:
-	#	species_trait_array = np.abs(np.sort(np.random.uniform(-1,0,int(i)) )) # large then small
-	#else:
-	#	species_trait_array = np.sort(np.random.uniform(0,1,int(i)) ) # small then large
-	#	
-	
-	
-	#a1 = np.sort(np.random.uniform(0,1,max(1,int(i/2.))))
-	#a2 = np.sort(np.random.uniform(0,1,int(i/2.)))[::-1]
-	#species_trait_array = np.concatenate((a1,a2))         # highest values in the middle
-	
+	# precompute stuff
 	list_all_values += list(species_trait_array)
 	trait_list_of_arrays.append(species_trait_array)
 	tr_waiting_times += list(species_trait_array) # all trait values
@@ -495,55 +565,17 @@ for i in species_durations:
 
 
 
-def transform_rate_logistic(r0,prm,trait):
-	# r0 is the max rate
-	x0,k = prm # mid point and steepness
-	rate_at_trait = r0 / ( 1. + exp( -k * (trait-x0) )    )
-	return rate_at_trait
-
-def map_trait_time(ts,te,trait_list):
-	tm_waiting_times =list()
-	tm_birth_events  =list()
-	tm_death_events  =list()
-	for i in range(len(ts)):
-		tm_waiting_times += range(te[i],ts[i]+1)
-		tm_birth_events  += [ts[i]]
-		if te[i]> 0: tm_death_events  += [te[i]] # only add if taxon is extinct
-	
-	tm_waiting_times = np.array(tm_waiting_times)	
-	tm_birth_events  = np.array(tm_birth_events )	
-	tm_death_events  = np.array(tm_death_events )	
-		
-	return tm_waiting_times,tm_birth_events,tm_death_events
-
-
-def get_rate_index_trait(times,tm_events):
-	
-	indx_tm_waiting_times = np.zeros(len(tm_waiting_times)).astype(int)
-	indx_tm_events  = np.zeros(len(tm_events)).astype(int)
-	
-	for i in range(2,len(times)):
-		t0= times[i-1]
-		t1= times[i]
-		indx = i
-		indx_tm_waiting_times[tm_waiting_times>t0]= indx_tm_waiting_times[tm_waiting_times>t0]+1
-		indx_tm_events[tm_events>t0]  = indx_tm_events[tm_events>t0]  +1
-	
-	return np.array(indx_tm_waiting_times),np.array(indx_tm_events)
-	
-
-
 	
 # define correlation function
 tranform_rate_func = transform_rate_logistic
+delta_trait = 0.1 # the x0 parmater can only range between min/max trait values +/- 10%
+allowed_x0_range = np.array([ min(tr_waiting_times)*(1-delta_trait), max(tr_waiting_times)*(1+delta_trait)  ])
 
-#covert to array
+#convert to array
 tr_waiting_times = np.array(tr_waiting_times)
 tr_birth_events  = np.array(tr_birth_events )
 tr_death_events  = np.array(tr_death_events )[te>0]
 tm_waiting_times,tm_birth_events,tm_death_events = map_trait_time(ts,te,species_trait_array)
-
-#print tm_waiting_times,tm_birth_events,tm_death_events
 
 print tm_birth_events[0:10], tm_death_events[0:10]
 
@@ -560,159 +592,19 @@ timesMA = np.array([max_time, 30.,min_time])
 indx_tm_birth_waiting_times,indx_tm_birth_events = get_rate_index_trait(timesLA,tm_birth_events)
 indx_tm_death_waiting_times,indx_tm_death_events = get_rate_index_trait(timesMA,tm_death_events)
 
+# check stuff
 print len(tr_waiting_times),len(tm_waiting_times),len(indx_tm_birth_waiting_times),len(indx_tm_death_waiting_times)
 print len(indx_tm_birth_events),len(indx_tm_death_events) #, m0A[indx_tm_death_events]
-
-
-#print tranform_rate_func(l0A[indx_tm_birth_events],alphaLA,tr_birth_events)
-#print tranform_rate_func(l0A[indx_tm_birth_waiting_times],alphaLA,tr_waiting_times)
-
-
-#print indx_tm_birth_events
-
-
 print get_likelihood_continuous_trait(l0A[0],m0A[0],alphaLA,alphaMA,tranform_rate_func)
-
 list_indexes = [indx_tm_birth_waiting_times,indx_tm_birth_events,indx_tm_death_waiting_times,indx_tm_death_events]
 print get_likelihood_continuous_trait_vect(l0A,m0A,alphaLA,alphaMA,tranform_rate_func,list_indexes)
 
-
-quit()
-
-
-
-
-####### PRECOMPUTE VECTORS #######
-sp_events_bin = []
-ex_events_bin = []
-br_length_bin = []
-bins = np.arange(min_time,max_time+1)[::-1]
-for i in range(len(bins)-1):
-	a,b,c = precompute_events([bins[i],bins[i+1]])
-	sp_events_bin.append(a)
-	ex_events_bin.append(b)
-	br_length_bin.append(c)
-
-sp_events_bin = np.array(sp_events_bin)
-ex_events_bin = np.array(ex_events_bin)
-br_length_bin = np.array(br_length_bin)
-
-# remove first bin
-sp_events_bin = sp_events_bin[1:]
-ex_events_bin = ex_events_bin[1:]
-br_length_bin = br_length_bin[1:]
-max_time -= 1
-n_bins = len(sp_events_bin)
-
-
-
-
-print get_rate_index([max_time,min_time])
-                
-quit()
-
-
-out_dir= os.getcwd()
-file_name = "test"
-out_log = "%s/%s_mcmc.log" % (out_dir, file_name)
-mcmc_logfile = open(out_log , "w",0) 
-mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_0","mu_0","x0_l","kappa_l","x0_m","kappa_m"])+'\n')
-
-
-Gamma_shape,Gamma_rate = 1.,1.
-priorA =  prior_gamma(l0A,Gamma_shape,Gamma_rate) + prior_gamma(m0A,Gamma_shape,Gamma_rate)
-#priorA += prior_normal(log(alphaLA),.1) + prior_normal(log(alphaMA),.1)
-
-likA = get_likelihood_continuous_trait(l0A,m0A,alphaLA,alphaMA,tranform_rate_func)
-
-print min(tranform_rate_func(m0A,alphaMA,tr_waiting_times)),max(tranform_rate_func(m0A,alphaMA,tr_waiting_times))
-
-
-x= tranform_rate_func(l0A,alphaLA,tr_waiting_times)
-print x, l0A,alphaLA
-#np.argwhere(np.isnan(x)), tr_waiting_times[np.argwhere(np.isnan(x))]
-
-#quit()
-
-
-
-
-
-
-print likA,priorA
-
-n_iterations=100000
-iteration = 0
-while iteration < n_iterations:
-	l0,m0,alphaL,alphaM = l0A+0,m0A+0,alphaLA+0,alphaMA+0
-	hasting = 0 
-	rr = np.random.random(3)
-	if rr[0] < 0.2:
-		l0,hasting= update_multiplier_freq(l0A,f=1)
-	elif rr[0] < 0.4:
-		m0,hasting= update_multiplier_freq(m0A,f=1)
-	else:
-		
-		if runBETA:
-			if rr[2]<0.5:
-				alphaL,hasting= update_multiplier_freq(alphaLA,d=1.05,f=1)
-			else:
-				alphaM,hasting= update_multiplier_freq(alphaMA,d=1.05,f=1)
-		elif runLogistic:
-			d_win = np.array([0.5,0.1])
-			if rr[2]<0.5:
-				alphaL= update_sliding_win_unbounded_vec(alphaLA,d=d_win)
-			else:
-				alphaM= update_sliding_win_unbounded_vec(alphaMA,d=d_win)
-			
-		else:
-			alphaL= np.abs(update_sliding_win_unbounded_vec(alphaLA,d=0.1))
-			alphaM= np.abs(update_sliding_win_unbounded_vec(alphaMA,d=0.1))
-		
-		
-			
-	prior =  prior_gamma(l0,Gamma_shape,Gamma_rate) + prior_gamma(m0,Gamma_shape,Gamma_rate)	
-	#prior += prior_normal(log(alphaL),.5) + prior_normal(log(alphaM),.5)
-	if runBETA==2:
-		if min(alphaL)< 1 or min(alphaM)< 1: 
-			prior = -np.inf
-			lik = -np.inf
-		else:
-			lik = get_likelihood_continuous_trait(l0,m0,alphaL,alphaM,tranform_rate_func)
-	
-	else:
-		lik = get_likelihood_continuous_trait(l0,m0,alphaL,alphaM,tranform_rate_func)
-		
-	
-	if lik-likA + prior-priorA + hasting >= log(np.random.random()):
-		likA=lik
-		priorA= prior
-		l0A= l0
-		m0A= m0
-		alphaLA= alphaL
-		alphaMA= alphaM
-		
-	if iteration % 100==0: 
-		print iteration,likA,lik,l0A,m0A,alphaLA,alphaMA #,convexA
-		log_state = map(str,[iteration,likA+priorA,likA,priorA]+list(l0A)+list(m0A)+list(alphaLA)+list(alphaMA))
-		mcmc_logfile.write('\t'.join(log_state)+'\n')
-		mcmc_logfile.flush()
-		
-	iteration+=1
-	
-
-
-
-
-
-
-quit()
-
-
-
-
 out_dir= os.path.dirname(f)
 
+
+
+
+# setup output files
 print out_dir
 if out_dir=="": 
 	out_dir= os.getcwd()
@@ -723,37 +615,13 @@ out_dir = "%s/pyrate_mcmc_logs" % (out_dir)
 try: os.mkdir(out_dir) 
 except: pass
 
-out_log = "%s/%s_mcmc.log" % (out_dir, file_name)
+out_log = "%s/%s_trait_mcmc.log" % (out_dir, file_name)
 mcmc_logfile = open(out_log , "w",0) 
-mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg","K_l","K_m","root_age","death_age","gamma_rate_hp","poisson_rate_hp"])+'\n')
-out_log = "%s/%s_sp_rates.log" % (out_dir, file_name)
+mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg","K_l","K_m","x0_l","kappa_l","x0_m","kappa_m","root_age","death_age","gamma_rate_hp","poisson_rate_hp"])+'\n')
+out_log = "%s/%s_trait_sp_rates.log" % (out_dir, file_name)
 sp_logfile = open(out_log , "w",0) 
-out_log = "%s/%s_ex_rates.log" % (out_dir, file_name)
-ex_logfile = open(out_log , "w",0) 
-
-####### PRECOMPUTE VECTORS #######
-sp_events_bin = []
-ex_events_bin = []
-br_length_bin = []
-bins = np.arange(min_time,max_time+1)[::-1]
-for i in range(len(bins)-1):
-	a,b,c = precompute_events([bins[i],bins[i+1]])
-	sp_events_bin.append(a)
-	ex_events_bin.append(b)
-	br_length_bin.append(c)
-
-sp_events_bin = np.array(sp_events_bin)
-ex_events_bin = np.array(ex_events_bin)
-br_length_bin = np.array(br_length_bin)
-
-# remove first bin
-sp_events_bin = sp_events_bin[1:]
-ex_events_bin = ex_events_bin[1:]
-br_length_bin = br_length_bin[1:]
-max_time -= 1
-
-
-n_bins = len(sp_events_bin)
+out_log = "%s/%s_trait_ex_rates.log" % (out_dir, file_name)
+ex_logfile = open(out_log , "w",0) 	
 
 ####### init parameters #######
 L_acc= np.random.gamma(2,2,1)
@@ -766,7 +634,9 @@ min_allowed_t = 1   # minimum allowed distance between shifts (to avoid numerica
 Gamma_shape = 2.    # shape parameter of Gamma prior on B/D rates
 hpGamma_shape = 1.2 # shape par of Gamma hyperprior on rate of Gamma priors on B/D rates
 hpGamma_rate =  0.1 # rate par of Gamma hyperprior on rate of Gamma priors on B/D rates
-rev_bins = bins[::-1]+0.1
 
 check_lik = 0 # debug (set to 1 to compare vectorized likelihood against 'traditional' one)
 runMCMC([L_acc,M_acc,timesLA,timesMA])
+
+quit()
+
