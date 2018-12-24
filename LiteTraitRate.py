@@ -196,6 +196,8 @@ def get_likelihood_continuous_trait(l0,m0,alphaL,alphaM,tranf_rate_func):
 
 def get_likelihood_continuous_trait_vect(l0,m0,alphaL,alphaM,tranf_rate_func,list_indx):
 	[ind_l2,ind_l1,ind_m2,ind_m1] = list_indx
+	#print l0, len(ind_l2), len(ind_l1)
+	#quit()
 	lik1 = sum(log(tranf_rate_func(l0[ind_l1],alphaL,tr_birth_events)))
 	lik2 = -sum(tranf_rate_func(l0[ind_l2],alphaL,tr_waiting_times))
 	lik3 = sum(log(tranf_rate_func(m0[ind_m1],alphaM,tr_death_events)))
@@ -400,8 +402,10 @@ def runMCMC(arg):
 				alphaL= update_sliding_win_unbounded_vec(alphaLA,d=d_win)
 			else:
 				alphaM= update_sliding_win_unbounded_vec(alphaMA,d=d_win)
+			#print alphaL, alphaM, allowed_x0_range
+			#quit()
 			
-		elif r[0] < 0.99:
+		elif r[0] < -0.99:
 			# do RJ
 			L,timesL, M,timesM, hasting, update_L = RJMCMC([L_acc,M_acc, timesLA, timesMA])
 			if update_L==1: 
@@ -514,14 +518,13 @@ p_freq = args.p
 
 
 ####### Parse DATA #######
-#f = args.d
-f = "/Users/danielesilvestro/Software/LiteRate/example_dataTAD.txt"
+f = args.d
 t_file=np.loadtxt(f, skiprows=1)
 ts_years = t_file[:,2].astype(int)
 te_years = t_file[:,3].astype(int)
 
-#te_years = np.round(np.random.uniform(1950,2017,1000)).astype(int)
-#ts_years = np.round(np.random.uniform(1950,te_years,1000)).astype(int)
+te_years = np.round(np.random.uniform(1900,2017,1000)).astype(int)
+ts_years = te_years - np.round(np.random.gamma(1,10,1000)).astype(int)
 #
 
 
@@ -550,10 +553,15 @@ tr_birth_events =[]
 tr_death_events =[]
 
 list_all_values = []
+
+#print "\n\n\nspecies_durations",list(species_durations)
 for i in species_durations:
 	# make up some trait data
 	species_trait_array = np.sort(np.random.normal(0,2,int(i)) )   # skewed values
-	species_trait_array = np.sort(np.random.uniform(-5,5,int(i)) ) # severely skewed values
+	species_trait_array = np.sort(np.random.uniform(-10,10,int(i)) ) # severely skewed values
+	species_trait_array = np.sort(np.random.uniform(0,i,int(i)) ).astype(int) # trait = age (no correlation if Exp liespans)
+	#_ species_trait_array = np.linspace(0,i,int(i))  # severely skewed values
+	#_ species_trait_array[species_trait_array>0] -= 1
 	#species_trait_array = np.random.uniform(-5,5,int(i))          # no trait effects	
 	
 	# precompute stuff
@@ -568,25 +576,34 @@ for i in species_durations:
 	
 # define correlation function
 tranform_rate_func = transform_rate_logistic
-delta_trait = 0.1 # the x0 parmater can only range between min/max trait values +/- 10%
-allowed_x0_range = np.array([ min(tr_waiting_times)*(1-delta_trait), max(tr_waiting_times)*(1+delta_trait)  ])
+delta_trait = 0.2 # the x0 parmater can only range between min/max trait values +/- 10%
+allowed_x0_range = [-10,+10] #np.array([ min(tr_waiting_times)*(1-delta_trait), max(tr_waiting_times)*(1+delta_trait)  ])
 
 #convert to array
 tr_waiting_times = np.array(tr_waiting_times)
 tr_birth_events  = np.array(tr_birth_events )
 tr_death_events  = np.array(tr_death_events )[te>0]
-tm_waiting_times,tm_birth_events,tm_death_events = map_trait_time(ts,te,species_trait_array)
+tm_waiting_times,tm_birth_events,tm_death_events = map_trait_time(ts,te,species_trait_array)# timing of the event
 
-print tm_birth_events[0:10], tm_death_events[0:10]
+#print tm_birth_events[0:10], tm_death_events[0:10]
 
 
 # init params
-l0A=np.array([0.2,0.1])
-m0A=np.array([0.1,0.1])
-alphaLA=np.array([0,1.])
-alphaMA=np.array([0,1.])
-timesLA = np.array([max_time, 30.,min_time])
-timesMA = np.array([max_time, 30.,min_time])
+l0A=np.array([0.2])
+m0A=np.array([0.1])
+alphaLA=np.array([0,0])
+alphaMA=np.array([0,0])
+timesLA = np.array([max_time,min_time])
+timesMA = np.array([max_time,min_time])
+
+#print list(tr_waiting_times)
+print len(tr_death_events[tr_death_events<4])/float(len(tr_waiting_times[tr_waiting_times<4]))
+print len(tr_death_events[tr_death_events>6])/float(len(tr_waiting_times[tr_waiting_times>6]))
+print len(tr_death_events)/float(len(tr_waiting_times))
+#quit()
+
+
+
 
 # conpute index arrays for baseline rates
 indx_tm_birth_waiting_times,indx_tm_birth_events = get_rate_index_trait(timesLA,tm_birth_events)
@@ -624,8 +641,8 @@ out_log = "%s/%s_trait_ex_rates.log" % (out_dir, file_name)
 ex_logfile = open(out_log , "w",0) 	
 
 ####### init parameters #######
-L_acc= np.random.gamma(2,2,1)
-M_acc= np.random.gamma(2,2,1)
+L_acc= np.array([0.3]) #np.random.gamma(2,2,1)
+M_acc= np.array([0.3]) #np.random.gamma(2,2,1)
 timesLA = np.array([max_time, min_time])
 timesMA = np.array([max_time, min_time])
 

@@ -1,4 +1,4 @@
-tbl = read.table("Weib.log",h=T)
+tbl = read.table("/Users/danielesilvestro/Software/LiteRate/ADE_discrete/Weib.log",h=T)
 
 library(scales)
 transp = 0.2
@@ -24,7 +24,7 @@ print(mean(rel_err_scale))
 
 
 
-plot(log(tbl$true_longevity), log(tbl$este_longevity), pch=19,col = alpha("black",transp))
+plot(log(tbl$true_longevity), log(tbl$este_longevity), pch=19,col = alpha(colors,transp))
 abline(a=0,b=1,lty=2)
 
 

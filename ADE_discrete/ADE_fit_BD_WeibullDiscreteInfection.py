@@ -17,13 +17,14 @@ origin = 1960
 present = 2010
 
 def simulate_data(shape=1.,scale=5., n=1000):
-	s = np.sort(np.random.uniform(origin,present-1,n))
-	e = s + np.random.weibull(shape,n) *scale
-	e[e>present] = present
+	s_weibull = np.sort(np.random.uniform(origin,present-1,n))
+	e_weibull = s_weibull + np.random.weibull(shape,n) *scale	
+	
+	e_weibull[e_weibull>present] = present
 	print "\nextant:", len(e[e==present]), shape, scale, "mean longevity:", mean(e[e<present]-s[e<present])
 	if run_discrete:
-		s = s.astype(int)
-		e = e.astype(int)
+		ts = ts.astype(int)
+		te = te.astype(int)
 	return(s,e)
 
 # Aged dependet rate leading to a Weibull waiting time
@@ -52,11 +53,41 @@ def BDwwte(args):
 	return sum(lik)
 
 
+def birth_rates_infection(Dt,l0=0.5,gam=0.2,thres=0.5,k0=5,mt=0):
+	# global
+	max_sp = 1000.
+	#Dt = np.cumsum(np.random.poisson(10,32))   # diversity trajectory
+	D = Dt/max_sp
+	Kvec = np.zeros(len(Dt))
+	Kvec[0] = k0 / max_sp
+	for i in range(1,len(Dt)): Kvec[i] = Kvec[i-1] + (D[i-1]*gam + thres) *(1-Kvec[i-1]) 
+	
+	lt = l0 - (l0-mt)*(D/Kvec)
+	return lt
+
+	
+
+
 def BDwwteDISCRETE(args):
-	[l,W_shape,W_scale] = args
+	[l0,gam,thresh,W_shape,W_scale] = args
 	d = e - s
 	de = d[e<present] #takes only the extinct species times
 	birth_lik = len(s)*log(l)-l*sum(d) # log probability of speciation
+	div=0
+	Dt = []
+	n_spec = []
+	for i in range(min(ts), max(te)):
+		n_spec = len(ts[ts==i])
+		div += len(ts[ts==i])-len(te[te==i])
+		print div
+		Dt.append(div)
+	
+	Dt = np.array(Dt)
+	n_spec = np.array(n_spec)
+	# lik speciation
+	birth_rates = birth_rates_infection(Dt, l0=0.5,gam=0.2,thres=0.5,k0=5,mt=0)
+	birth_lik = log(birth_rates)*n_spec - birth_rates*Dt
+	birth_lik[0] = 0
 	
 	# lik extinct	
 	death_lik_de = wr(death_lik_i[e<present],W_shape,W_scale) 
@@ -70,28 +101,32 @@ def BDwwteDISCRETE(args):
 	lik = birth_lik + death_lik
 	return sum(lik)
 
-def update_multiplier_proposal(i,d=1.1,f=0.5):
-	S=shape(i)
+
+def update_multiplier_proposal(q,d=1.1,f=0.75):
+	S=np.shape(q)
+	ff=np.random.binomial(1,f,S)
 	u = np.random.uniform(0,1,S)
 	l = 2*log(d)
 	m = exp(l*(u-.5))
- 	ii = i * m
+	m[ff==0] = 1.
+ 	new_q = q * m
 	U=sum(log(m))
-	return ii, U
+	return new_q,U
+
+
 
 logfile = open("Weib.log" , "wb") 
 wlog=csv.writer(logfile, delimiter='\t')
 
-wlog.writerow([ "it","true_shape","true_scale","true_longevity","est_shape","est_scale","este_longevity"  ])
+wlog.writerow([ "it","true_shape","true_scale","true_longevity","true_rate","est_shape","est_scale","est_longevity","est_rate"])
 
 for sim in range(1000):
-	true_shape = exp(np.random.uniform(-2,2))
+	true_shape = exp(np.random.uniform(0,2))
 	true_longevity = np.random.uniform(3,10)
 	true_scale = true_longevity/(gamma(1+1/true_shape)) 		
-	# true_scale = np.random.uniform(3,10)		
-	# true_longevity = true_scale*(gamma(1+1/true_shape)) 
-		
-	s, e = simulate_data(shape=true_shape,scale=true_longevity, n=1000)
+	true_rate = np.random.uniform(0.5,5)
+	
+	s, e = simulate_data(shape=true_shape,scale=true_longevity,rate=true_rate, n=1000)
 	# 2D matrix to integrate out 1-year time bins
 	d = e - s
 	n_discrete_bins = 50

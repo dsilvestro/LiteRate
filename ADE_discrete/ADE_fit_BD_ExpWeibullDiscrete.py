@@ -17,8 +17,14 @@ origin = 1960
 present = 2010
 
 def simulate_data(shape=1.,scale=5., n=1000):
-	s = np.sort(np.random.uniform(origin,present-1,n))
-	e = s + np.random.weibull(shape,n) *scale
+	s_weibull = np.sort(np.random.uniform(origin,present-1,n/2))
+	e_weibull = s_weibull + np.random.weibull(shape,n/2) *scale
+	
+	s_exponential = np.sort(np.random.uniform(origin,present-1,n/2))
+	e_exponential = s_weibull + np.random.weibull(1/shape,n/2) *scale
+	
+	
+	
 	e[e>present] = present
 	print "\nextant:", len(e[e==present]), shape, scale, "mean longevity:", mean(e[e<present]-s[e<present])
 	if run_discrete:
@@ -70,28 +76,32 @@ def BDwwteDISCRETE(args):
 	lik = birth_lik + death_lik
 	return sum(lik)
 
-def update_multiplier_proposal(i,d=1.1,f=0.5):
-	S=shape(i)
+
+def update_multiplier_proposal(q,d=1.1,f=0.75):
+	S=np.shape(q)
+	ff=np.random.binomial(1,f,S)
 	u = np.random.uniform(0,1,S)
 	l = 2*log(d)
 	m = exp(l*(u-.5))
- 	ii = i * m
+	m[ff==0] = 1.
+ 	new_q = q * m
 	U=sum(log(m))
-	return ii, U
+	return new_q,U
+
+
 
 logfile = open("Weib.log" , "wb") 
 wlog=csv.writer(logfile, delimiter='\t')
 
-wlog.writerow([ "it","true_shape","true_scale","true_longevity","est_shape","est_scale","este_longevity"  ])
+wlog.writerow([ "it","true_shape","true_scale","true_longevity","true_rate","est_shape","est_scale","est_longevity","est_rate"])
 
 for sim in range(1000):
-	true_shape = exp(np.random.uniform(-2,2))
+	true_shape = exp(np.random.uniform(0,2))
 	true_longevity = np.random.uniform(3,10)
 	true_scale = true_longevity/(gamma(1+1/true_shape)) 		
-	# true_scale = np.random.uniform(3,10)		
-	# true_longevity = true_scale*(gamma(1+1/true_shape)) 
-		
-	s, e = simulate_data(shape=true_shape,scale=true_longevity, n=1000)
+	true_rate = np.random.uniform(0.5,5)
+	
+	s, e = simulate_data(shape=true_shape,scale=true_longevity,rate=true_rate, n=1000)
 	# 2D matrix to integrate out 1-year time bins
 	d = e - s
 	n_discrete_bins = 50
