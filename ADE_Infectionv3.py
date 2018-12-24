@@ -170,7 +170,7 @@ def BDwwteDISCRETE(args,updated_ext, D_lik):
 		lik_ext = death_lik_de * death_lik_wte
 		death_lik_extinct = log(np.sum(lik_ext, axis=1)) - log_n_discrete_bins	
 		# lik extant	
-		death_lik_extant = np.sum(-cdf_WR(W_shape,W_scale, death_lik_i[te==present]), axis=1) - log_n_discrete_bins
+		death_lik_extant = log(np.sum(np.exp(-cdf_WR(W_shape,W_scale, death_lik_i[te==present])), axis=1)) - log_n_discrete_bins
 		death_lik = np.sum(death_lik_extinct) + np.sum(death_lik_extant)
 	else:
 		death_lik = D_lik
