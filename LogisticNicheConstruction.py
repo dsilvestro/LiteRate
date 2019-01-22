@@ -21,7 +21,7 @@ run_discrete = 1 # if set to 1 times of origination and extinctions are rounded 
 p = argparse.ArgumentParser() #description='<input file>') 
 
 p.add_argument('-seed',              type=int, help='random seed', default=-1,metavar=-1)
-p.add_argument('-useADE',            type=int, help='1) use ADE 0) constant extinction', default=1,metavar=1)
+p.add_argument('-extendedLogistic',            type=int, help='set to 0 forsimple logistic', default=1,metavar=1)
 p.add_argument('-s',                 type=int, help='sampling freq', default=1000,metavar=1000)
 p.add_argument('-useInfectionModel', type=int, help='1) use Infection model 0) constant speciation', default=1,metavar=1)
 
@@ -29,7 +29,7 @@ p.add_argument('-useInfectionModel', type=int, help='1) use Infection model 0) c
 args = p.parse_args()
 useInfectionModel = args.useInfectionModel
 sampling_freq = args.s
-useADE = args.useADE
+extendedLogistic = args.extendedLogistic
 
 ########################
 
@@ -97,43 +97,8 @@ def update_multiplier_proposal(q,d=1.1):
 	return new_q,U
 
 
-# Aged dependet rate leading to a Weibull waiting time
-def wr(t,W_shape,W_scale):
-	# rate
-	wr=(W_shape/W_scale)*((t/W_scale)**(W_shape-1))
-	return wr
-
-
-# Log of aged dependent rate leading to a Weibull waiting time
-def log_wr(t,W_shape,W_scale):
-	log_wr=log(W_shape/W_scale)+(W_shape-1)*log(t/W_scale)
-	return log_wr
-
-def cdf_WR(W_shape,W_scale,x):
-	return (x/W_scale)**(W_shape)
-
-def BDwwte(args):
-	[l,W_shape,W_scale] = args
-	d = e - s
-	de = d[e<present] #takes only the extinct species times
-	birth_lik = len(s)*log(l)-l*sum(d) # log probability of speciation
-	death_lik_de = sum(log_wr(de, W_shape, W_scale)) # log probability of death event
-	death_lik_wte = sum(-cdf_WR(W_shape,W_scale, d)) # log probability of waiting time until death event
-	lik = birth_lik + death_lik_de + death_lik_wte
-	return sum(lik)
-
-
-def birth_rates_infection(Dt,l0=0.5,gam=0.2,thres=0.5,k0t=1,kmt=1,mt=0):
-	D = Dt/(max(Dt)+kmt)
-	Kvec = np.zeros(len(Dt))
-	Kvec[0] = (Dt[0]+k0t)/(max(Dt)+kmt)
-	for i in range(1,len(Dt)): Kvec[i] = Kvec[i-1] + (D[i-1]*gam + thres) *(1-Kvec[i-1]) 	
-	lt = l0 - (l0-mt)*(D/Kvec) + 0.000001 # avoid exactly 0 rates
-	return lt, Kvec
-
-
-def get_logistic(x,L,k,x0):
-	return( L/(1+exp(-k*(x-x0))) )
+def get_logistic(x,L,k,x0,div_0,nu):
+	return( div_0 + (L-div_0)/((1+exp(-k*(x-x0)))**(1/nu)) )
 
 
 def get_lambda(l0,niche_frac):
@@ -145,7 +110,7 @@ def get_lambda(l0,niche_frac):
 
 def BDwwteDISCRETE(args,updated_ext, D_lik):
 	#[l0,gam,thres,k0_t,km_t,W_shape,W_scale] = args
-	[l_0,  k, x0, 	div_0,   L,	mu_correlation,  W_scale] = args
+	[l_0,  k, x0, 	div_0,   L,	mu_correlation,  W_scale, nu] = args
 	# d = te - ts
 	# de = d[te<present] #takes only the extinct species times
 	longevity = W_scale* gamma(1+1/W_shape)
@@ -156,7 +121,7 @@ def BDwwteDISCRETE(args,updated_ext, D_lik):
 		birth_lik = np.sum(n_spec*log(birth_rates)-birth_rates*np.sum(Dt)) # log probability of speciation
 	else:
 		# lik speciation
-		niche = get_logistic(x,1,k,x0)*L + div_0
+		niche = get_logistic(x,L,k,x0,div_0,nu)
 		niche_frac = Dt/niche
 		birth_rates = get_lambda(l_0,niche_frac)
 		birth_lik = np.sum(log(birth_rates)*n_spec - birth_rates*Dt)
@@ -165,7 +130,8 @@ def BDwwteDISCRETE(args,updated_ext, D_lik):
 		death_rates =  get_lambda(m_0,niche_frac)
 		
 		# NOTE: the [0:-1] removes the likelihood of the last bin (since we don't know which of those are extant/extinct) = correct?
-		death_lik = np.sum(log(death_rates[0:-1])*n_exti[0:-1] - death_rates[0:-1]*Dt[0:-1])
+		#death_lik = np.sum(log(death_rates[0:-1])*n_exti[0:-1] - death_rates[0:-1]*Dt[0:-1])
+		death_lik = np.sum(log(death_rates)*n_exti - death_rates*Dt)
 
 	lik = np.array([birth_lik, death_lik])
 	return [lik, birth_rates, death_rates, niche, niche_frac]
@@ -191,7 +157,7 @@ def calc_prior(args):
 
 
 # read data
-tbl = np.loadtxt("/Users/danielesilvestro/Software/LiteRate/all_bands_1.tsv",skiprows=1)
+tbl = np.loadtxt("/Users/danielesilvestro/Software/LiteRate/all_bands_1newdata.tsv",skiprows=1)
 ts = tbl[:,2]
 te = tbl[:,3]
 
@@ -250,14 +216,14 @@ for i in range(len(discr)):
 log_n_discrete_bins = np.log(n_discrete_bins)
 
 out=""
-if useADE==1: out = "_ADE"
-if useInfectionModel==1: out += "_Inf"
+if extendedLogistic==1: out = "_extLog"
 
 
 outfile = "allbands_%s%s.log" % (seed, out)
 logfile = open(outfile , "wb") 
 wlog=csv.writer(logfile, delimiter='\t')
-head =["it","likelihood","prior","l0","steepness_k","midpoint_x0","initCarryingCap","maxCarryingCap_L","W_shape","W_scale"]
+head =["it","posterior","likelihood","likelihood_birth","likelihood_death","prior","l0","steepness_k","midpoint_x0",\
+"initCarryingCap","maxCarryingCap_L","W_shape","W_scale","nu"]
 for i in range(len(Dt)): head.append("l_%s" % i)
 for i in range(len(Dt)): head.append("m_%s" % i)
 for i in range(len(Dt)): head.append("niche_%s" % i)
@@ -276,6 +242,7 @@ l0 = 0.5
 m_0 = 0.13
 W_shape = 0.1        # extinction parameters (discrete Weibull model)
 W_scale = 1./0.20  # extinction parameters (discrete Weibull model)
+nu = 1.
 
 x = np.arange(n_time_bins).astype(float) # 31 years discretized in 100 steps
 dT = x[1] # duration in years of each time step
@@ -283,7 +250,7 @@ dT = x[1] # duration in years of each time step
 
 
 
-argsA=                         np.array([l0,  k, x0, 	div_0,   L,	W_shape,  W_scale])
+argsA=                         np.array([l0,  k, x0, 	div_0,   L,	W_shape,  W_scale, nu])
 
 BDwwteDISCRETE(argsA,updated_ext=0,D_lik=0)
 
@@ -297,12 +264,12 @@ BDwwteDISCRETE(argsA,updated_ext=0,D_lik=0)
 
 
 
-#argsA=                         np.array([l0,  gam,	thres,   k0_t,  km_t,	W_shape,  W_scale])
-if args.useADE==1: update_freq =np.array([1.,  0,	0,       0,     0,      1,        1      ])   
-else:              update_freq =np.array([1.,  0,	0,       1,     1,      0,        1      ])   
+#argsA=                                   np.array([l0,  gam,	thres,   k0_t,  km_t,	W_shape,  W_scale, nu])
+if args.extendedLogistic==1: update_freq =np.array([1.,  0,	      0,       0,     0,      0,        1      , 1])   
+else:              update_freq =np.array([1.,  0,	0,       1,     1,      0,        1      , 0])   
 update_freq = update_freq/sum(update_freq)
-#update_sliding = np.array([1.,  0,	0,       1,     1,      1,        1      ])   
-update_sliding = np.array([0 ,  1,	1,       0,     0,      0,        0      ])   
+#update_sliding = np.array([1.,  0,	0,       1,     1,      1,        1      , 0])   
+update_sliding = np.array([0 ,  1,	1,       0,     0,      0,        0      , 0])   
 lik_res = BDwwteDISCRETE(argsA,updated_ext=1,D_lik=0)
 likA = np.sum(lik_res[0])
 likDeathA = lik_res[0][1]
@@ -321,31 +288,23 @@ while iteration != 50000000:
 	rr = np.random.random(2)
 	#if rr[0] < 0.1 or useInfectionModel==0:
 	if rr[1]<0.1: # update extinction
-		if useADE: res = update_multiplier_proposal_vec(args,d=1.1,f=np.array([0.,0,0,0,0,1,1]))
-		else: res = update_multiplier_proposal_vec(args,d=1.1,f=np.array([0.,0,0,0,0,0,1]))
+		#if useADE: res = update_multiplier_proposal_vec(args,d=1.1,f=np.array([0.,0,0,0,0,1,1,0]))
+		res = update_multiplier_proposal_vec(args,d=1.1,f=np.array([0.,0,0,0,0,0,1,0]))
 		updated_ext = 1
 	else:
-		res = update_multiplier_proposal_vec(args,d=1.1,f=np.array([1,1,1,1,1,0,0.]))	
+		if extendedLogistic==1:
+			res = update_multiplier_proposal_vec(args,d=1.1,f=np.array([1,1,1,1,1,0,0.,1]))
+		else:
+			res = update_multiplier_proposal_vec(args,d=1.1,f=np.array([1,1,1,1,1,0,0.,0]))
 	[args, hastings] = res
-	#elif rr[0] < 0.35:
-	#	res = update_multiplier_proposal_vec(args,d=1.25,f=np.array([0.,0,0,1,1,0,0]))
-	#	args = res[0]
-	#	hastings = res[1]
-	#	#res1 = update_poisson_proposal(args[3])
-	#	#args[3] = res1[0]
-	#	#hastings += res1[1]
-	#elif useInfectionModel:
-	#	indx = np.random.choice((update_sliding == 1).nonzero()[0]) 
-	#	args[indx] = update_sliding_win(args[indx])
 	lik_res = BDwwteDISCRETE(args,updated_ext,likDeathA)
-	#lik_res = BDwwteDISCRETE(args,0,likDeathA)
 	lik = np.sum(lik_res[0])
 	prior = calc_prior(args)
-	#if args[1] + args[2] > 1: prior = -np.inf #dkDT cannot grow by more than (1-K), 
-	if (lik - likA) + (prior - priorA) + hastings > log(np.random.random()):
+	if (lik - likA) + (prior - priorA) + hastings > log(np.random.random()) or iteration==0:
 		argsA = args
 		priorA = prior
 		likA = lik
+		likBirthA = lik_res[0][0]
 		likDeathA = lik_res[0][1]
 		birth_rates = lik_res[1]
 		death_rates = lik_res[2]
@@ -355,10 +314,11 @@ while iteration != 50000000:
 		#print lik,prior, args
 		argsO=deepcopy(argsA)
 		argsO[2] = origin+argsO[2]
+		argsO[6] = 1./argsO[6]
 		#argsO[3]=Dt[0]+argsA[3] #calculate Kmin
 		#argsO[4]= max_obs_diversity+argsA[4] #calculate Kmax
 		print iteration, likA, argsO #, args
-		l= [iteration, likA, priorA] + list(argsO) + list(birth_rates) + list(death_rates) + list(niche) + list(nicheFrac)
+		l= [iteration,likA+priorA, likA,likBirthA,likDeathA, priorA] + list(argsO) + list(birth_rates) + list(death_rates) + list(niche) + list(nicheFrac)
 		wlog.writerow(l)
 		logfile.flush()
 		os.fsync(logfile)
