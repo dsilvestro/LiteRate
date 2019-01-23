@@ -21,15 +21,22 @@ run_discrete = 1 # if set to 1 times of origination and extinctions are rounded 
 p = argparse.ArgumentParser() #description='<input file>') 
 
 p.add_argument('-seed',              type=int, help='random seed', default=-1,metavar=-1)
-p.add_argument('-extendedLogistic',            type=int, help='set to 0 forsimple logistic', default=1,metavar=1)
-p.add_argument('-s',                 type=int, help='sampling freq', default=1000,metavar=1000)
-p.add_argument('-useInfectionModel', type=int, help='1) use Infection model 0) constant speciation', default=1,metavar=1)
+p.add_argument('-extendedLogistic',            type=int, help='set to 0 forsimple logistic', default=0,metavar=0)
+p.add_argument('-s',                 type=int, help='sampling freq', default=10000,metavar=10000)
+p.add_argument('-m_birth', type=int, help='0) use const b rates 1) niche dep b', default=1,metavar=1)
+p.add_argument('-m_death', type=int, help='0) use const d rates 1) niche dep d', default=1,metavar=1)
+p.add_argument('-constK', type=int, help='1) use const K 0) logistic K', default=0,metavar=0)
+
 
 
 args = p.parse_args()
-useInfectionModel = args.useInfectionModel
 sampling_freq = args.s
 extendedLogistic = args.extendedLogistic
+
+m_birth = args.m_birth
+m_death = args.m_death
+constK = args.constK
+
 
 ########################
 
@@ -58,6 +65,9 @@ def logPoisson_pmf(x,l):
 def prior_gamma(x,a,s,l):
 	# mean = a*s
 	return scipy.stats.gamma.logpdf(x, a, scale=s,loc=l)
+
+def prior_norm(x,loc=0,scale=1):
+	return scipy.stats.norm.logpdf(x, loc, scale)
 
 
 
@@ -98,8 +108,10 @@ def update_multiplier_proposal(q,d=1.1):
 
 
 def get_logistic(x,L,k,x0,div_0,nu):
-	return( div_0 + (L-div_0)/((1+exp(-k*(x-x0)))**(1/nu)) )
+	return( div_0 + L/((1+exp(-k*(x-x0)))**(1/nu)) )
 
+def get_const_K(x,L):
+	return( np.ones(len(x))*L )
 
 def get_lambda(l0,niche_frac):
 	l_temp =  l0 - (l0)*niche_frac
@@ -115,31 +127,44 @@ def BDwwteDISCRETE(args,updated_ext, D_lik):
 	# de = d[te<present] #takes only the extinct species times
 	longevity = W_scale* gamma(1+1/W_shape)
 	m_0 = 1./W_scale
-	if useInfectionModel==0:
+	if m_birth==0:
 		birth_rates = np.ones(n_time_bins)*l0
 		Kvec = np.ones(n_time_bins)
 		birth_lik = np.sum(n_spec*log(birth_rates)-birth_rates*np.sum(Dt)) # log probability of speciation
 	else:
 		# lik speciation
-		niche = get_logistic(x,L,k,x0,div_0,nu)
+		if constK:
+			niche = get_const_K(x,L)
+		else: 
+			niche = get_logistic(x,L,k,x0,div_0,nu)
 		niche_frac = Dt/niche
 		birth_rates = get_lambda(l_0,niche_frac)
 		birth_lik = np.sum(log(birth_rates)*n_spec - birth_rates*Dt)
 
-		#death_rates = m_0 * np.exp(-mu_correlation*log(Dt/float(max(Dt))))   
+	if m_death ==0:	
+		death_rates = np.ones(n_time_bins) *m_0
+	elif m_death ==1:
 		death_rates =  get_lambda(m_0,niche_frac)
+	#elif m_death==2:
+	#	death_rates = m_0 * np.exp(mu_correlation*log(Dt/float(max(Dt))))   
+	#elif m_death==3:
+	#	niche_delay = get_logistic(x,L,k,x0+mu_correlation,div_0,nu)
+	#	niche_frac = Dt/niche_delay
+	#	death_rates =  get_lambda(m_0,niche_frac)
+	#	death_lik = np.sum(log(death_rates)*n_exti - death_rates*Dt)
 		
-		# NOTE: the [0:-1] removes the likelihood of the last bin (since we don't know which of those are extant/extinct) = correct?
-		#death_lik = np.sum(log(death_rates[0:-1])*n_exti[0:-1] - death_rates[0:-1]*Dt[0:-1])
-		death_lik = np.sum(log(death_rates)*n_exti - death_rates*Dt)
+
+	death_lik = np.sum(log(death_rates)*n_exti - death_rates*Dt)
 
 	lik = np.array([birth_lik, death_lik])
 	return [lik, birth_rates, death_rates, niche, niche_frac]
 
 
 def calc_prior(args):
-	#args=  [l0,  gam,	thres,   k0_t,  km_t,	W_shape,  W_scale]
-	p = 0 #prior_gamma(args[4]+max_obs_diversity,a=shapeG,s=scaleG,l=locG)
+	#args=    np.array([l0,  k, x0, 	div_0,   L,	W_shape,  W_scale, nu])
+	p = prior_gamma(args[0],a=1,s=10,l=0) + prior_gamma(args[1],a=1,s=10,l=0) + prior_gamma(1./args[6],a=1,s=10,l=0)
+	p += prior_gamma(args[3],a=1,s=prior_k0_L,l=0)+prior_gamma(args[4],a=1,s=prior_k0_L,l=0)
+	p += prior_norm(np.log(args[3]),loc=0,scale=2)
 	if origin + args[2]>= present: p = -np.inf
 	return p
 	
@@ -157,7 +182,7 @@ def calc_prior(args):
 
 
 # read data
-tbl = np.loadtxt("/Users/danielesilvestro/Software/LiteRate/all_bands_1newdata.tsv",skiprows=1)
+tbl = np.loadtxt("all_bands_1newdata.tsv",skiprows=1)
 ts = tbl[:,2]
 te = tbl[:,3]
 
@@ -198,7 +223,7 @@ print Dt
 print sum(n_spec), len(ts)
 print "n sp :", n_spec
 print "n ex :", n_exti
-
+prior_k0_L = np.max(Dt) # scale of Gamma(1,s) prior
 
 
 
@@ -217,13 +242,14 @@ log_n_discrete_bins = np.log(n_discrete_bins)
 
 out=""
 if extendedLogistic==1: out = "_extLog"
+if constK: out = "_constK"
 
 
 outfile = "allbands_%s%s.log" % (seed, out)
 logfile = open(outfile , "wb") 
 wlog=csv.writer(logfile, delimiter='\t')
 head =["it","posterior","likelihood","likelihood_birth","likelihood_death","prior","l0","steepness_k","midpoint_x0",\
-"initCarryingCap","maxCarryingCap_L","W_shape","W_scale","nu"]
+"initCarryingCap","maxCarryingCap_L","W_shape","m0","nu"]
 for i in range(len(Dt)): head.append("l_%s" % i)
 for i in range(len(Dt)): head.append("m_%s" % i)
 for i in range(len(Dt)): head.append("niche_%s" % i)
@@ -261,13 +287,33 @@ BDwwteDISCRETE(argsA,updated_ext=0,D_lik=0)
 
 
 
+if m_birth==1 and m_death==1:
+	#argsA=             np.array([l0,  k,    x0, 	div_0,   L,	mu_correlation,  W_scale, nu])
+	update_multiplier = np.array([1.,  1,	0,        1,   1,              0,        1 , 1])   
+
+if m_birth==1 and m_death==2:
+	#argsA=             np.array([l0,  k,    x0, 	div_0,   L,	mu_correlation,  W_scale, nu])
+	update_multiplier = np.array([1.,  1,	0,        1,   1,              1,        1 , 1])   
+
+if m_birth==1 and m_death==3:
+	#argsA=             np.array([l0,  k,    x0, 	div_0,   L,	mu_correlation,  W_scale, nu])
+	update_multiplier = np.array([1.,  1,	0,        1,   1,              1,        1 , 1])   
+
+#if m_birth==0 and m_death==2:
+#	#argsA=          np.array([l0,  k, x0, 	div_0,   L,	mu_correlation,  W_scale, nu])
+#	update_sliding = np.array([1 ,  1,	0,        1,   1,              1,        1 , 1])   
+#
+
+if extendedLogistic==0:
+	#argsA=             np.array([l0,  k,    x0, 	div_0,   L,	mu_correlation,  W_scale, nu])
+	update_multiplier = np.array([1.,  1,	0,        1,   1,              0,        1 , 0])   
+
+if constK:
+	#argsA=             np.array([l0,  k,    x0, 	div_0,   L,	mu_correlation,  W_scale, nu])
+	update_multiplier = np.array([1.,  0,	0,        0,   1,              0,        1 , 0])   
 
 
-
-#argsA=                                   np.array([l0,  gam,	thres,   k0_t,  km_t,	W_shape,  W_scale, nu])
-if args.extendedLogistic==1: update_freq =np.array([1.,  0,	      0,       0,     0,      0,        1      , 1])   
-else:              update_freq =np.array([1.,  0,	0,       1,     1,      0,        1      , 0])   
-update_freq = update_freq/sum(update_freq)
+update_multiplier = update_multiplier/sum(update_multiplier)
 #update_sliding = np.array([1.,  0,	0,       1,     1,      1,        1      , 0])   
 update_sliding = np.array([0 ,  1,	1,       0,     0,      0,        0      , 0])   
 lik_res = BDwwteDISCRETE(argsA,updated_ext=1,D_lik=0)
@@ -286,16 +332,13 @@ while iteration != 50000000:
 	updated_ext = 0
 	hastings= 0
 	rr = np.random.random(2)
-	#if rr[0] < 0.1 or useInfectionModel==0:
-	if rr[1]<0.1: # update extinction
-		#if useADE: res = update_multiplier_proposal_vec(args,d=1.1,f=np.array([0.,0,0,0,0,1,1,0]))
-		res = update_multiplier_proposal_vec(args,d=1.1,f=np.array([0.,0,0,0,0,0,1,0]))
-		updated_ext = 1
+	if rr[1]<0.1 and constK==0:
+		res = argsA+0
+		res[2] = update_sliding_win(res[2], m=0, M=present, d=1.5)
+		res = [res,0]
 	else:
-		if extendedLogistic==1:
-			res = update_multiplier_proposal_vec(args,d=1.1,f=np.array([1,1,1,1,1,0,0.,1]))
-		else:
-			res = update_multiplier_proposal_vec(args,d=1.1,f=np.array([1,1,1,1,1,0,0.,0]))
+		res = update_multiplier_proposal_vec(args,d=1.1,f=update_multiplier)
+
 	[args, hastings] = res
 	lik_res = BDwwteDISCRETE(args,updated_ext,likDeathA)
 	lik = np.sum(lik_res[0])
