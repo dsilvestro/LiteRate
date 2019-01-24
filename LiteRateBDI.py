@@ -156,7 +156,7 @@ def precompute_events(arg):
 	M_events=np.intersect1d((te <= up).nonzero()[0], (te > lo).nonzero()[0])	
 	# get total time lived (or tot branch length) within time window
 	n_S = get_sp_in_frame_br_length(up,lo)
-	return len(L_events), len(M_events), sum(n_S), len(n_S)
+	return len(L_events), len(M_events), sum(n_S)
 	
 def get_rate_index(times):
 	if len(times)==2: 
@@ -190,9 +190,7 @@ def BDI_partial_lik(L_acc_vec,M_acc_vec):
 	L = L_acc_vec * (1-model_BDI) # if model_BDI=0: BD, if model_BDI=1: ID
 	M = M_acc_vec                 
 	I = L_acc_vec * model_BDI     
-	k = br_length_bin # diversity trajectory
-	
-	Tk = np.ones(len(k)) #dT_events[ind_in_time] # time spent in state
+	k = br_length_bin # diversity trajectory	
 	Uk = sp_events_bin   # number up steps
 	Dk = ex_events_bin   # number down steps
 	
@@ -200,22 +198,8 @@ def BDI_partial_lik(L_acc_vec,M_acc_vec):
 	lik_D = sum(log(M*k)*Dk -(M*k*Tk))
 	
 	lik = Uk*log(k*L+I) + Dk*log(M*k) - Tk*(k*(L+M)+I)
-	# print lik
-	#print sum(lik_BI+ lik_D), sum(lik)
-	#print Uk
-	#print k
-	#
 	#quit()
 	return sum(lik) # lik_BI + lik_D
-      #
-	#if par=="l":
-	#	# calc likelihood only when diversity > 0
-	#	lik = sum(log(L[k>0]*k[k>0]+I[k>0])*Uk[k>0] - (L[k>0]*k[k>0]+I[k>0])*Tk[k>0])
-	#else: 
-	#	# calc likelihood only when diversity > 0
-	#	lik = sum(log(M[k>0]*k[k>0])*Dk[k>0] -(M[k>0]*k[k>0]*Tk[k>0]))
-	#return lik
-
 
 ####### PROPOSALS #######
 def update_multiplier_freq(q,d=1.1,f=0.75):
@@ -404,11 +388,11 @@ p.add_argument('-p',       type=int, help='print frequency', default=1000, metav
 p.add_argument('-s',       type=int, help='sampling frequency', default=1000, metavar=1000) 
 p.add_argument('-seed',    type=int, help='seed (set to -1 to make it random)', default= 1, metavar= 1)
 p.add_argument('-present_year',    type=int, help="""set to: -1 for standard pyrate datasets (time BP), \
-0: time AD and present set to most recent TE, 1: time AD present user defined """, default= -1, metavar= -1)
+0: time AD and present set to most recent TE, 1: time AD present user defined """, default= 0, metavar= 0)
 p.add_argument('-model_BDI',    type=int, help='0: birth-death; 1: immigration-death', default= 1, metavar= 1)
 p.add_argument('-use_rate_HP',    type=int, help='0: no hyper-prior on rates, 1: hyper-prior on rates', default= 1, metavar= 1)
 p.add_argument('-Poisson_prior',    type=float, help='0: use hyper-prior on n. shifts, >0:  fixed prior on n. shifts', default= 0, metavar= 0)
-
+p.add_argument('-rm_first_bin',    type=float, help='if set to 1 it removes the first time bin (if max time is not the origin)', default= 0, metavar= 0)
 
 args = p.parse_args()
 
@@ -440,8 +424,6 @@ elif args.present_year==0: # find max year and set to present
 else: # user-spec present year
 	ts_actual = args.present_year - ts_years 
 	te_actual = args.present_year - te_years 
-	
-	
 	#__  tbl = np.loadtxt("all_bands_1newdata.tsv",skiprows=1)
 	#__  ts = tbl[:,2]
 	#__  te = tbl[:,3]	
@@ -496,48 +478,33 @@ ex_logfile = open(out_log , "w",0)
 sp_events_bin = []
 ex_events_bin = []
 br_length_bin = []
-di_trajec_bin = []
 bins = np.arange(min_time,max_time+1)[::-1]
 for i in range(len(bins)-1):
-	a,b,c, d = precompute_events([bins[i],bins[i+1]])
+	a,b,c = precompute_events([bins[i],bins[i+1]])
 	sp_events_bin.append(a)
 	ex_events_bin.append(b)
 	br_length_bin.append(c)
-	di_trajec_bin.append(d)
 
 sp_events_bin = np.array(sp_events_bin)
 ex_events_bin = np.array(ex_events_bin)
 br_length_bin = np.array(br_length_bin)
-di_trajec_bin = np.array(di_trajec_bin)
 
-# remove first bin
-#sp_events_bin = sp_events_bin[1:]
-#ex_events_bin = ex_events_bin[1:]
-#br_length_bin = br_length_bin[1:]
-#max_time -= 1
 
-# print len(Dt), len(n_exti), len(ex_events_bin)
-# 
-# print "Logistic vs LiteRate"
-# 
-# print Dt
+
+if rm_first_bin:
+	# remove first bin
+	sp_events_bin = sp_events_bin[1:]
+	ex_events_bin = ex_events_bin[1:]
+	br_length_bin = br_length_bin[1:]
+	max_time -= 1
+
+
 print br_length_bin
-# 
-# print n_spec
-# print "\n",sp_events_bin
-# 
-# 
-#quit()
-#
-#sp_events_bin = n_spec[1:-1]
-#ex_events_bin = n_exti[1:-1]
-#di_trajec_bin = Dt[1:-1]
-#
-#print len(sp_events_bin), len(ex_events_bin), len(di_trajec_bin)
-
 
 
 n_bins = len(sp_events_bin)
+Tk = np.ones(n_bins) # time spent in state
+
 
 ####### init parameters #######
 L_acc= np.random.gamma(2,2,1)
