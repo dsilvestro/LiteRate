@@ -472,9 +472,9 @@ out_log = "%s/%s%s_mcmc.log" % (out_dir, file_name,out_name)
 mcmc_logfile = open(out_log , "w",0) 
 mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg",\
 "K_l","K_m","root_age","death_age","gamma_rate_hp_BI","gamma_rate_hp_D","poisson_rate_hp"])+'\n')
-out_log = "%s/%s%s_sp_rates.log" % (out_dir, file_name, out_name)
+out_log = "%s/%s%s_sp_rates.log" % (out_dir, file_name, out_name )
 sp_logfile = open(out_log , "w",0) 
-out_log = "%s/%s%s_ex_rates.log" % (out_dir, file_name, out_name)
+out_log = "%s/%s%s_ex_rates.log" % (out_dir, file_name, out_name )
 ex_logfile = open(out_log , "w",0) 
 
 ####### PRECOMPUTE VECTORS #######
