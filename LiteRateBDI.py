@@ -407,9 +407,11 @@ n_iterations = args.n
 s_freq = args.s
 p_freq = args.p
 model_BDI = args.model_BDI
+if model_BDI==0: out_name = "_BD"
+if model_BDI==1: out_name = "_ID"
 use_rate_HP = args.use_rate_HP
 Poisson_HP = args.Poisson_prior # if 0 use HP, else fixed Poi 
-
+rm_first_bin = args.rm_first_bin
 ####### Parse DATA #######
 f = args.d
 t_file=np.loadtxt(f, skiprows=1)
@@ -466,12 +468,13 @@ out_dir = "%s/pyrate_mcmc_logs" % (out_dir)
 try: os.mkdir(out_dir) 
 except: pass
 
-out_log = "%s/%s_mcmc.log" % (out_dir, file_name)
+out_log = "%s/%s%s_mcmc.log" % (out_dir, file_name,out_name)
 mcmc_logfile = open(out_log , "w",0) 
-mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg","K_l","K_m","root_age","death_age","gamma_rate_hp_BI","gamma_rate_hp_D","poisson_rate_hp"])+'\n')
-out_log = "%s/%s_sp_rates.log" % (out_dir, file_name)
+mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg",\
+"K_l","K_m","root_age","death_age","gamma_rate_hp_BI","gamma_rate_hp_D","poisson_rate_hp"])+'\n')
+out_log = "%s/%s%s_sp_rates.log" % (out_dir, file_name, out_name)
 sp_logfile = open(out_log , "w",0) 
-out_log = "%s/%s_ex_rates.log" % (out_dir, file_name)
+out_log = "%s/%s%s_ex_rates.log" % (out_dir, file_name, out_name)
 ex_logfile = open(out_log , "w",0) 
 
 ####### PRECOMPUTE VECTORS #######
