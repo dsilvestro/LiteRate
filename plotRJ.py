@@ -54,7 +54,7 @@ def get_prior_shift(t_start,t_end,bins_histogram):
 	G_rate = 1.  # mode at 1
 	min_time_frame_size = 1
 	iteration=0.
-	print "\nComputing empirical priors on rate shifts..."
+	print( "\nComputing empirical priors on rate shifts...")
 	for rep in range(100000):
 		if rep % 10000 ==0:
 			sys.stdout.write(".")
@@ -77,7 +77,7 @@ def get_prior_shift(t_start,t_end,bins_histogram):
 	prior_s = np.mean(np.histogram(times_of_shift,bins=bins_histogram)[0]/iteration)
 	bf2 = calcBF(2,prior_s)
 	bf6 = calcBF(6,prior_s)
-	print np.array([prior_s,bf2,bf6])
+	print( np.array([prior_s,bf2,bf6]))
 	return [prior_s,bf2,bf6]
 
 
@@ -197,9 +197,9 @@ def get_K_values(mcmc_tbl,head,col,par,burnin=0.2):
 	h2 = head.index("K_m")
 	if par=="l": h = h1
 	else: h = h2
-	print h
+	print( h)
 	unique, counts = np.unique(post_tbl[:,h], return_counts=True)
-	print unique, counts
+	print( unique, counts)
 	out_str  = print_R_vec("\nunique",unique)
 	out_str += print_R_vec("\ncounts",counts)
 	out_str += "\nplot(unique,counts,type = 'h', xlim = c(0,%s), ylab = 'Frequency', xlab = 'n. shifts',lwd=5,col='%s')" \
@@ -214,7 +214,7 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 	stem_file=files[0]
 	wd = "%s" % os.path.dirname(stem_file)
 	#print(name_file, wd)
-	print "found", len(files), "log files...\n"
+	print( "found", len(files), "log files...\n")
 	if logT==1: outname = "Log_"
 	else: outname = ""
 	if max_age>0: outname+= "t%s" % (int(max_age))
@@ -253,7 +253,7 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 	outfile.writelines(r_str)
 	outfile.close()
 	cmd="cd %s; Rscript %sRTT_plots.r" % (wd,outname)
-	print "Plots saved in %s (%sRTT_plots)" % (wd,outname)
+	print( "Plots saved in %s (%sRTT_plots)" % (wd,outname))
 	os.system(cmd)
 
 
