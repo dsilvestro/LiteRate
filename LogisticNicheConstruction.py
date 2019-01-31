@@ -311,6 +311,7 @@ if extendedLogistic==0:
 if constK:
 	#argsA=             np.array([l0,  k,    x0, 	div_0,   L,	mu_correlation,  W_scale, nu])
 	update_multiplier = np.array([1.,  0,	0,        0,   1,              0,        1 , 0])   
+	argsA[3]=0
 
 
 update_multiplier = update_multiplier/sum(update_multiplier)
@@ -359,8 +360,8 @@ while iteration != 50000000:
 		argsO[2] = origin+argsO[2]
 		argsO[6] = 1./argsO[6]
 		#argsO[3]=Dt[0]+argsA[3] #calculate Kmin
-		#argsO[4]= max_obs_diversity+argsA[4] #calculate Kmax
-		print iteration, likA, argsO #, args
+		argsO[4] = argsO[3]+argsO[4]
+		print iteration, likA, argsO, lik #, args
 		l= [iteration,likA+priorA, likA,likBirthA,likDeathA, priorA] + list(argsO) + list(birth_rates) + list(death_rates) + list(niche) + list(nicheFrac)
 		wlog.writerow(l)
 		logfile.flush()
