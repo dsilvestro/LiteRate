@@ -70,39 +70,49 @@ def remove_shift_RJ_weighted_mean(rates,times):
 	
 def RJMCMC(arg):
 	# args = birth-rate vector (L), death rates (M), rate shifts for L and M 
-	[L,M, timesL, timesM]=arg
+	[L,M,I, timesL, timesM, timesI]=arg
 	r=np.random.random(2)
 	newL,newtimesL,log_q_probL = L,timesL,0
 	newM,newtimesM,log_q_probM = M,timesM,0
-	sample_shift_mu = 0.5
+	newI,newtimesI,log_q_probI = I,timesI,0
 	min_allowed_n_rates = 1
 	# update birth model with 50% chance
-	if r[0]>sample_shift_mu:
+	if r[0]<0.33:
 		# ADD/REMOVE SHIFT LAMBDA
 		if r[1]>0.5: 
 			newL,newtimesL,log_q_probL = add_shift_RJ_weighted_mean(L,timesL)
 		# if 1-rate model this won't do anything, keeping the frequency of add/remove equal
 		elif len(L)> min_allowed_n_rates: # defined for the edgeShift model
 			newL,newtimesL,log_q_probL = remove_shift_RJ_weighted_mean(L,timesL) 
-		update_L = 1 # indicator (which par was changed by RJ)
+		update_par = 0 # indicator (which par was changed by RJ)
 	# update death model with 50% chance
-	else:
+	elif r[0]<0.66:
 		# ADD/REMOVE SHIFT MU
 		if r[1]>0.5: 
 			newM,newtimesM,log_q_probM = add_shift_RJ_weighted_mean(M,timesM)
 		# if 1-rate model this won't do anything, keeping the frequency of add/remove equal
 		elif len(M)> min_allowed_n_rates: # defined for the edgeShift model
 			newM,newtimesM,log_q_probM = remove_shift_RJ_weighted_mean(M,timesM) 
-		update_L = 0
+		update_par = 1
+	# update death model with 50% chance
+	else:
+		# ADD/REMOVE SHIFT LAMBDA
+		if r[1]>0.5: 
+			newI,newtimesI,log_q_probI = add_shift_RJ_weighted_mean(I,timesI)
+		# if 1-rate model this won't do anything, keeping the frequency of add/remove equal
+		elif len(I)> min_allowed_n_rates: # defined for the edgeShift model
+			newI,newtimesI,log_q_probI = remove_shift_RJ_weighted_mean(I,timesI) 
+		update_par = 2 # indicator (which par was changed by RJ)
+	
 	# return new rates (newL, newM), new times of rate shift (newtimesL/M), hastngs ratio times Jacobian
-	return newL,newtimesL,newM,newtimesM,log_q_probL+log_q_probM,update_L
+	return newL,newtimesL,newM,newtimesM,newI,newtimesI,log_q_probL+log_q_probM+log_q_probI,update_par
 
-def get_post_rj_HP(xl,xm): # returns rate parameter for the Poisson distribution sampled directly from the posterior
+def get_post_rj_HP(xl,xm,xi): # returns rate parameter for the Poisson distribution sampled directly from the posterior
 	# Gamma hyper-prior on the rate parameter of the Poisson priors on number of rates
-	G_shape_rjHP = 2. # 1.1
-	G_rate_rjHP  = 1. # 0.1 # mode at 1
-	n = 2 # sp, ex
-	a = G_shape_rjHP + xl + xm
+	G_shape_rjHP = 1. # 1.1
+	G_rate_rjHP  = .001 # 0.1 # mode at 1
+	n = 3 # sp, ex, im
+	a = G_shape_rjHP + xl + xm + xi
 	b = G_rate_rjHP + n
 	Poi_lambda_rjHP = np.random.gamma(a,1./b)
 	#print "Mean Poi_lambda:", a/b
@@ -144,7 +154,7 @@ def get_sp_in_frame_br_length(up,lo):
 	n_t_ts[n_all_inframe]= ts[n_all_inframe]   # speciation events before time frame
 	n_t_ts[(n_t_ts>up).nonzero()]=up           # for which length is accounted only from $up$ rather than from $ts$	
 	n_t_te[n_all_inframe]= te[n_all_inframe]   # extinction events in time frame
-	n_t_te[np.intersect1d((n_t_te<=up).nonzero()[0], n_all_inframe)]=lo     # for which length is accounted only until $lo$ rather than to $te$
+	n_t_te[np.intersect1d((n_t_te<lo).nonzero()[0], n_all_inframe)]=lo     # for which length is accounted only until $lo$ rather than to $te$
 	# vector of br lengths within time frame  #(scaled by rho)
 	n_S=((n_t_ts[n_all_inframe]-n_t_te[n_all_inframe])) #*rhos[n_all_inframe])
 	return n_S
@@ -186,16 +196,16 @@ def vect_lik(L_acc_vec,M_acc_vec):
 	return sum(Blik)+sum(Dlik)
 
 
-def BDI_partial_lik(L_acc_vec,M_acc_vec):
-	L = L_acc_vec * (1-model_BDI) # if model_BDI=0: BD, if model_BDI=1: ID
+def BDI_partial_lik(L_acc_vec,M_acc_vec,I_acc_vec):
+	L = L_acc_vec # if model_BDI=0: BD, if model_BDI=1: ID
 	M = M_acc_vec                 
-	I = L_acc_vec * model_BDI     
+	I = L_acc_vec    
 	k = br_length_bin # diversity trajectory	
 	Uk = sp_events_bin   # number up steps
 	Dk = ex_events_bin   # number down steps
 	
-	lik_BI = sum(log(L*k+I)*Uk - (L*k+I)*Tk)
-	lik_D = sum(log(M*k)*Dk -(M*k*Tk))
+	#lik_BI = sum(log(L*k+I)*Uk - (L*k+I)*Tk)
+	#lik_D = sum(log(M*k)*Dk -(M*k*Tk))
 	
 	lik = Uk*log(k*L+I) + Dk*log(M*k) - Tk*(k*(L+M)+I)
 	#quit()
@@ -255,16 +265,17 @@ def get_rate_HP(rate):
 ####### MCMC looop #######
 def runMCMC(arg):
 	# initial values of rates, and times
-	[L_acc, M_acc, timesLA, timesMA]  = arg
+	[L_acc, M_acc, I_acc, timesLA, timesMA,timesIA]  = arg
 	
 	if Poisson_HP==0: Poi_lambda_rjHP = 1
 	else: Poi_lambda_rjHP = Poisson_HP
-	Gamma_rate = [1.,1.]
+	Gamma_rate = [1.,1.,.1]
 	# init lik
 	indLA = get_rate_index(timesLA)
 	indMA = get_rate_index(timesMA)
+	indIA = get_rate_index(timesIA)
 	#likA = sum(vect_lik(L_acc[indLA],M_acc[indMA]))
-	likA = BDI_partial_lik(L_acc[indLA],M_acc[indMA])
+	likA = BDI_partial_lik(L_acc[indLA],M_acc[indMA],I_acc[indIA])
 	#likA = get_BDlik(timesLA,L_acc,"l") + get_BDlik(timesMA,M_acc,"m")
 	priorA = prior_gamma(L_acc) + prior_gamma(M_acc)
 	priorA += -log(max_time-min_time)*(len(L_acc)-1+len(M_acc)-1)
@@ -273,15 +284,17 @@ def runMCMC(arg):
 	
 	iteration = 0
 	while iteration < n_iterations:		
-		r = np.random.random(2)
+		r = np.random.random(3)
 		L,timesL = L_acc+0,timesLA+0
 		M,timesM = M_acc+0,timesMA+0
+		I,timesI = I_acc+0,timesIA+0
 		indL =indLA
 		indM =indMA
+		indI =indIA
 		hasting = 0
 		gibbs=0
 		priorPoi = 0
-		if r[0]< 0.4:
+		if r[0]< 0.25:
 			# update birth part
 			if r[1] < .5 or len(L_acc)==1:
 				# update rates
@@ -291,7 +304,7 @@ def runMCMC(arg):
 				timesL = update_times(timesLA)
 				indL = get_rate_index(np.floor(timesL))
 			
-		elif r[0] < 0.8:
+		elif r[0] < 0.5:
 			# update M 
 			if r[1] < .5 or len(M_acc)==1:
 				# update rates
@@ -301,19 +314,29 @@ def runMCMC(arg):
 				timesM = update_times(timesMA)
 				indM = get_rate_index(np.floor(timesM))
 			
-		elif r[0] < 0.99 and const_rates==0:
+		elif r[0] < 0.75:
+			# update M 
+			if r[2] < .5 or len(I_acc)==1:
+				# update rates
+				I, hasting = update_multiplier_freq(I_acc)
+			else:
+				# update times (hastings = 0 because we are doing symmetric update)
+				timesI = update_times(timesIA)
+				indI = get_rate_index(np.floor(timesI))
+		elif r[0] < 0.99:
 			# do RJ
-			L,timesL, M,timesM, hasting, update_L = RJMCMC([L_acc,M_acc, timesLA, timesMA])
-			if update_L==1: indL = get_rate_index(np.floor(timesL))
-			else: indM = get_rate_index(np.floor(timesM))
-			priorPoi = Poisson_prior(len(L),Poi_lambda_rjHP)+Poisson_prior(len(M),Poi_lambda_rjHP)
+			L,timesL, M,timesM,I,timesI, hasting, update_par = RJMCMC([L_acc,M_acc,I_acc, timesLA, timesMA, timesIA])
+			if update_par==0: indL = get_rate_index(np.floor(timesL))
+			elif update_par==1: indM = get_rate_index(np.floor(timesM))
+			elif update_par==2: indI = get_rate_index(np.floor(timesI))
+			priorPoi = Poisson_prior(len(L),Poi_lambda_rjHP)+Poisson_prior(len(M),Poi_lambda_rjHP)+Poisson_prior(len(I),Poi_lambda_rjHP)
 			
 		else: 
 			# update HPs 
 			if Poisson_HP==0:
-				Poi_lambda_rjHP = get_post_rj_HP(len(L_acc),len(M_acc))
+				Poi_lambda_rjHP = get_post_rj_HP(len(L_acc),len(M_acc),len(I_acc))
 			if use_rate_HP:
-				Gamma_rate = [get_rate_HP(L_acc),get_rate_HP(M_acc)]
+				Gamma_rate = [get_rate_HP(L_acc),get_rate_HP(M_acc),get_rate_HP(I_acc)]
 			gibbs=1
 		
 		# prevent super small time frames
@@ -323,9 +346,9 @@ def runMCMC(arg):
 		else:
 			# calc acceptance ratio
 			# prior on rate
-			prior = prior_gamma(L,Gamma_shape,Gamma_rate[0]) + prior_gamma(M,Gamma_shape,Gamma_rate[1])
+			prior = prior_gamma(L,Gamma_shape,Gamma_rate[0]) + prior_gamma(M,Gamma_shape,Gamma_rate[1]) + prior_gamma(I,Gamma_shape,Gamma_rate[2])
 			# prior on times of rate shift
-			prior += -log(max_time-min_time)*(len(L)-1+len(M)-1)
+			prior += -log(max_time-min_time)*(len(L)-1+len(M)-1+len(I)-1)
 			# prior on 
 			if priorPoi != 0: 
 				prior += priorPoi
@@ -334,7 +357,7 @@ def runMCMC(arg):
 				priorPoi = priorPoiA
 			if gibbs==0:
 				#lik = sum(vect_lik(L[indL],M[indM]))
-				lik = BDI_partial_lik(L[indL],M[indM])
+				lik = BDI_partial_lik(L[indL],M[indM],I[indI])
 			else: 
 				lik = likA
 		
@@ -349,15 +372,15 @@ def runMCMC(arg):
 		
 		if lik-likA + prior-priorA + hasting >= log(np.random.random()) or gibbs==1:
 			# update accepted values to proposed ones
-			L_acc, M_acc, timesLA, timesMA = L,M,timesL, timesM
+			L_acc, M_acc, I_acc, timesLA, timesMA,timesIA = L,M,I,timesL, timesM,timesI
 			# update lik, prior
 			likA,priorA = lik, prior
-			indLA,indMA = indL, indM
+			indLA,indMA,indIA = indL, indM, indI
 			priorPoiA = priorPoi
 		
 		if iteration % s_freq ==0:
 			# MCMC log
-			log_state = map(str,[iteration,likA+priorA,likA,priorA,mean(L_acc),mean(M_acc),len(L_acc),len(M_acc),max_time,min_time] + Gamma_rate + [Poi_lambda_rjHP])
+			log_state = map(str,[iteration,likA+priorA,likA,priorA,mean(L_acc),mean(M_acc),mean(I_acc),len(L_acc),len(M_acc),len(I_acc),max_time,min_time] + Gamma_rate + [Poi_lambda_rjHP])
 			mcmc_logfile.write('\t'.join(log_state)+'\n')
 			mcmc_logfile.flush()
 			# log marginal rates/times
@@ -367,14 +390,19 @@ def runMCMC(arg):
 			log_state = map(str,list(M_acc) + list(timesMA[1:len(timesMA)-1]))
 			ex_logfile.write('\t'.join(log_state)+'\n')
 			ex_logfile.flush()
+			log_state = map(str,list(I_acc) + list(timesLA[1:len(timesIA)-1]))
+			im_logfile.write('\t'.join(log_state)+'\n')
+			im_logfile.flush()
 		
 		if iteration % p_freq ==0:
 			print iteration, likA, priorA
 			# print on screen
 			print "\tsp.times:", timesLA
 			print "\tex.times:", timesMA
+			print "\tim.times:", timesIA
 			print "\tsp.rates:", L_acc
 			print "\tex.rates:", M_acc
+			print "\tim.rates:", I_acc
 		
 		iteration +=1 
 
@@ -389,7 +417,6 @@ p.add_argument('-s',       type=int, help='sampling frequency', default=1000, me
 p.add_argument('-seed',    type=int, help='seed (set to -1 to make it random)', default= 1, metavar= 1)
 p.add_argument('-present_year',    type=int, help="""set to: -1 for standard pyrate datasets (time BP), \
 0: time AD and present set to most recent TE, 1: time AD present user defined """, default= 0, metavar= 0)
-p.add_argument('-const_rates',    type=int, help="set to: 1 for constant B/I and D rates" , default= 0, metavar= 0)
 p.add_argument('-model_BDI',    type=int, help='0: birth-death; 1: immigration-death', default= 1, metavar= 1)
 p.add_argument('-use_rate_HP',    type=int, help='0: no hyper-prior on rates, 1: hyper-prior on rates', default= 1, metavar= 1)
 p.add_argument('-Poisson_prior',    type=float, help='0: use hyper-prior on n. shifts, >0:  fixed prior on n. shifts', default= 0, metavar= 0)
@@ -413,12 +440,17 @@ if model_BDI==1: out_name = "_ID"
 use_rate_HP = args.use_rate_HP
 Poisson_HP = args.Poisson_prior # if 0 use HP, else fixed Poi 
 rm_first_bin = args.rm_first_bin
-const_rates args.const_rates
 ####### Parse DATA #######
 f = args.d
 t_file=np.loadtxt(f, skiprows=1)
 ts_years = t_file[:,2]
 te_years = t_file[:,3]
+
+
+te_years = np.random.uniform(1000,1100,10000)
+te_years = np.random.uniform(0,100,len(ts_years)) +ts_years
+
+
 if args.present_year== -1: # to load regular pyrate input
 	ts = ts_years
 	te = te_years
@@ -472,12 +504,14 @@ except: pass
 
 out_log = "%s/%s%s_mcmc.log" % (out_dir, file_name,out_name)
 mcmc_logfile = open(out_log , "w",0) 
-mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg",\
-"K_l","K_m","root_age","death_age","gamma_rate_hp_BI","gamma_rate_hp_D","poisson_rate_hp"])+'\n')
+mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg", "i_avg",\
+"K_l","K_m","K_i","root_age","death_age","gamma_rate_hp_B","gamma_rate_hp_D","gamma_rate_hp_I","poisson_rate_hp"])+'\n')
 out_log = "%s/%s%s_sp_rates.log" % (out_dir, file_name, out_name )
 sp_logfile = open(out_log , "w",0) 
 out_log = "%s/%s%s_ex_rates.log" % (out_dir, file_name, out_name )
 ex_logfile = open(out_log , "w",0) 
+out_log = "%s/%s%s_im_rates.log" % (out_dir, file_name, out_name )
+im_logfile = open(out_log , "w",0) 
 
 ####### PRECOMPUTE VECTORS #######
 sp_events_bin = []
@@ -503,8 +537,7 @@ if rm_first_bin:
 	br_length_bin = br_length_bin[1:]
 	max_time -= 1
 
-print sp_events_bin
-print ex_events_bin
+
 print br_length_bin
 
 
@@ -517,6 +550,8 @@ L_acc= np.random.gamma(2,2,1)
 M_acc= np.random.gamma(2,2,1)
 timesLA = np.array([max_time, min_time])
 timesMA = np.array([max_time, min_time])
+I_acc   = np.random.gamma(2,2,1)
+timesIA = np.array([max_time, min_time])
 
 ####### GLOBAL variables #######
 min_allowed_t = 1   # minimum allowed distance between shifts (to avoid numerical issues)
@@ -526,4 +561,4 @@ hpGamma_rate =  0.1 # rate par of Gamma hyperprior on rate of Gamma priors on B/
 rev_bins = bins[::-1]+0.1
 
 check_lik = 0 # debug (set to 1 to compare vectorized likelihood against 'traditional' one)
-runMCMC([L_acc,M_acc,timesLA,timesMA])
+runMCMC([L_acc,M_acc,I_acc,timesLA,timesMA,timesIA])
