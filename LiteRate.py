@@ -7,8 +7,6 @@ from scipy.special import gamma
 from scipy.special import beta as f_beta
 import random as rand
 import platform, time
-import multiprocessing, thread
-import multiprocessing.pool
 import csv
 from scipy.special import gdtr, gdtrix
 from scipy.special import betainc
@@ -16,7 +14,7 @@ import scipy.stats
 np.set_printoptions(suppress=True)
 np.set_printoptions(precision=3)  
 shape_beta_RJ = 10.
-print "\n\n             LiteRate - 20180201\n"
+print("\n\n             LiteRate - 20180201\n")
 
 ####### BEGIN FUNCTIONS for RJMCMC #######
 def prior_sym_beta(x,a): 
@@ -139,6 +137,8 @@ def get_BDlik(times,rates,par):
 def get_sp_in_frame_br_length(up,lo):
 	# index species present in time frame
 	n_all_inframe = np.intersect1d((ts >= lo).nonzero()[0], (te <= up).nonzero()[0])
+	singletons = np.intersect1d((ts==up).nonzero()[0],(te==up).nonzero()[0])
+	n_all_inframe = np.append(n_all_inframe,singletons)
 	# tot br length within time frame
 	n_t_ts,n_t_te=zeros(len(ts)),zeros(len(ts))
 	n_t_ts[n_all_inframe]= ts[n_all_inframe]   # speciation events before time frame
@@ -181,7 +181,7 @@ def vect_lik(L_acc_vec,M_acc_vec):
 		Blik = sum(log(L_acc_vec)*sp_events_bin - L_acc_vec*br_length_bin) 
 		Dlik = sum(log(M_acc_vec)*ex_events_bin - M_acc_vec*br_length_bin) 
 	except:
-		print len(L_acc_vec),len(M_acc_vec),len(sp_events_bin)
+		print(len(L_acc_vec),len(M_acc_vec),len(sp_events_bin))
 		sys.exit()
 	return sum(Blik)+sum(Dlik)
 
@@ -195,7 +195,7 @@ def update_multiplier_freq(q,d=1.1,f=0.75):
 	m = exp(l*(u-.5))
 	m[ff==0] = 1.
 	# new vector of rates
- 	new_q = q * m
+	new_q = q * m
 	# Hastings ratio
 	U=sum(log(m))
 	return new_q,U
@@ -321,7 +321,7 @@ def runMCMC(arg):
 		if check_lik==1:
 			lik_old = get_BDlik(np.floor(timesL),L,"l") + get_BDlik(np.floor(timesM),M,"m")
 			if iteration % 100==0: 
-				print lik_old-lik 
+				print(lik_old-lik) 
 		
 		
 		# print lik, likA, prior, priorA
@@ -348,12 +348,12 @@ def runMCMC(arg):
 			ex_logfile.flush()
 		
 		if iteration % p_freq ==0:
-			print iteration, likA, priorA
+			print(iteration, likA, priorA)
 			# print on screen
-			print "\tsp.times:", timesLA
-			print "\tex.times:", timesMA
-			print "\tsp.rates:", L_acc
-			print "\tex.rates:", M_acc
+			print("\tsp.times:", timesLA)
+			print("\tex.times:", timesMA)
+			print("\tsp.rates:", L_acc)
+			print("\tex.rates:", M_acc)
 		
 		iteration +=1 
 
@@ -367,7 +367,9 @@ p.add_argument('-p',       type=int, help='print frequency', default=1000, metav
 p.add_argument('-s',       type=int, help='sampling frequency', default=1000, metavar=1000) 
 p.add_argument('-seed',    type=int, help='seed (set to -1 to make it random)', default= 1, metavar= 1)
 p.add_argument('-present_year',    type=int, help="""set to: -1 for standard pyrate datasets (time BP), \
-0: time AD and present set to most recent TE, 1: time AD present user defined """, default= -1, metavar= -1)
+0: time AD and present set to most recent TE, 1: time AD present user defined """, default= 0, metavar= 0)
+p.add_argument('-rm_first_bin',    type=float, help='if set to 1 it removes the first time bin (if max time is not the origin)', default= 0, metavar= 0)
+
 
 args = p.parse_args()
 
@@ -406,7 +408,7 @@ min_time = min(te)
 
 out_dir= os.path.dirname(f)
 
-print out_dir
+print(out_dir)
 if out_dir=="": 
 	out_dir= os.getcwd()
 file_name = os.path.splitext(os.path.basename(f))[0]
@@ -417,12 +419,12 @@ try: os.mkdir(out_dir)
 except: pass
 
 out_log = "%s/%s_mcmc.log" % (out_dir, file_name)
-mcmc_logfile = open(out_log , "w",0) 
+mcmc_logfile = open(out_log , "w") 
 mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg","K_l","K_m","root_age","death_age","gamma_rate_hp","poisson_rate_hp"])+'\n')
 out_log = "%s/%s_sp_rates.log" % (out_dir, file_name)
-sp_logfile = open(out_log , "w",0) 
+sp_logfile = open(out_log , "w") 
 out_log = "%s/%s_ex_rates.log" % (out_dir, file_name)
-ex_logfile = open(out_log , "w",0) 
+ex_logfile = open(out_log , "w") 
 
 ####### PRECOMPUTE VECTORS #######
 sp_events_bin = []
@@ -440,10 +442,11 @@ ex_events_bin = np.array(ex_events_bin)
 br_length_bin = np.array(br_length_bin)
 
 # remove first bin
-sp_events_bin = sp_events_bin[1:]
-ex_events_bin = ex_events_bin[1:]
-br_length_bin = br_length_bin[1:]
-max_time -= 1
+if args.rm_first_bin:
+	sp_events_bin = sp_events_bin[1:]
+	ex_events_bin = ex_events_bin[1:]
+	br_length_bin = br_length_bin[1:]
+	max_time -= 1
 
 
 n_bins = len(sp_events_bin)
