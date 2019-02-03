@@ -12,10 +12,6 @@ import scipy.stats
 import scipy.misc
 import random
 from copy import deepcopy
-<<<<<<< HEAD
-=======
-from pathlib import Path
->>>>>>> master
 
 np.set_printoptions(suppress=True)
 np.set_printoptions(precision=3)  
@@ -31,20 +27,13 @@ p.add_argument('-m_death', type=int, help='0) use const d rates 1) niche dep d',
 p.add_argument('-constK', type=int, help='1) use const K 0) logistic K', default=0,metavar=0)
 p.add_argument('-rm_first_bin',    type=float, help='if set to 1 it removes the first time bin', default= 0, metavar= 0)
 p.add_argument('-n',       type=int, help='n. MCMC iterations', default=1000000, metavar=1000000)
-<<<<<<< HEAD
 p.add_argument('-d',       type=str, help='data file', default="", metavar="", required=True) 
-=======
-p.add_argument('-d',       type=str, help='data file', default="", metavar="") 
->>>>>>> master
 
 
 
 args = p.parse_args()
 sampling_freq = args.s
-<<<<<<< HEAD
 n_iterations = args.n
-=======
->>>>>>> master
 
 M_BIRTH = args.m_birth
 M_DEATH = args.m_death
@@ -67,6 +56,8 @@ SMALL_NUMBER = 0.000000000000001 #used for flooring rates
 def get_sp_in_frame_br_length(lo,up):
 	# index species present in time frame
 	n_all_inframe = np.intersect1d((ts <= lo).nonzero()[0], (te >= up).nonzero()[0])
+	singletons = np.intersect1d((ts==lo).nonzero()[0],(te==lo).nonzero()[0])
+	n_all_inframe = np.append(n_all_inframe,singletons)
 	# tot br length within time frame
 	n_t_ts,n_t_te=zeros(len(ts)),zeros(len(ts))
 	n_t_ts[n_all_inframe]= ts[n_all_inframe]   # speciation events before time frame
@@ -167,15 +158,9 @@ def likelihood_function(args):
 	else:
 		# lik speciation
 		if CONST_K:
-<<<<<<< HEAD
 			niche = get_const_K(time_range,L)
 		else: 
 			niche = get_logistic(time_range,L,k,x0,div_0,nu)
-=======
-			niche = get_const_K(x,L)
-		else: 
-			niche = get_logistic(x,L,k,x0,div_0,nu)
->>>>>>> master
 		niche_frac = Dt/niche
 		birth_rates = get_rate(l_max,niche_frac)
 		birth_lik = np.sum(log(birth_rates)*n_spec - birth_rates*Dt)
@@ -222,23 +207,6 @@ tbl = np.loadtxt(args.d,skiprows=1)
 ts = tbl[:,2]
 te = tbl[:,3]
 
-<<<<<<< HEAD
-=======
-out=""
-if CONST_K: out = "_constK"
-
-outfile = "%s_%s%s.log" % (Path(args.d).stem, seed, out)
-logfile = open(outfile , "w") 
-wlog=csv.writer(logfile, delimiter='\t')
-head =["it","posterior","likelihood","likelihood_birth","likelihood_death","prior","l_max","steepness_k","midpoint_x0",\
-"initCarryingCap","maxCarryingCap","m_max","nu"]
-for i in range(len(Dt)): head.append("l_%s" % i)
-for i in range(len(Dt)): head.append("m_%s" % i)
-for i in range(len(Dt)): head.append("niche_%s" % i)
-for i in range(len(Dt)): head.append("nicheFrac_%s" % i)
-
-wlog.writerow(head)
->>>>>>> master
 
 
 
@@ -273,7 +241,6 @@ if args.rm_first_bin:
 n_time_bins = len(Dt)
 
 
-<<<<<<< HEAD
 
 out=""
 if CONST_K: out = "_constK"
@@ -292,8 +259,6 @@ wlog.writerow(head)
 
 
 
-=======
->>>>>>> master
 PRIOR_K0_L = np.max(Dt) # scale of Gamma(1,s) prior
 
 
@@ -301,19 +266,12 @@ L = 20000 # maximum
 k = 1.5 # steepness
 x0 = 12 # midpoint
 div_0 = 10 # starting carrying capacity
-<<<<<<< HEAD
 l_max = 0.5 #max speciation rate
 m_max = 0.20  #max extinction rate
 nu = 1.
 
 time_range = np.arange(n_time_bins).astype(float)
 
-=======
-l_max = 0.5
-m_max = 0.20  # extinction parameters (discrete Weibull model)
-nu = 1.
-
->>>>>>> master
 
 argsA=np.array([l_max,  k, x0, 	div_0,   L,  m_max, nu])
 
@@ -349,11 +307,7 @@ priorA = calc_prior(argsA)
 prior=priorA
 
 iteration = 0
-<<<<<<< HEAD
 while iteration != n_iterations:
-=======
-while iteration != args.n:
->>>>>>> master
 	args = argsA+0.
 	updated_ext = 0
 	hastings= 0
