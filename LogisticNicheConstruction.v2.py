@@ -53,32 +53,19 @@ SMALL_NUMBER = 0.000000000000001 #used for flooring rates
 
 
 #Helper for precompute events. Calculates branch length (standing diversity) between lo and up
-def get_sp_in_frame_br_length(lo,up):
-	# index species present in time frame
-	n_all_inframe = np.intersect1d((ts <= lo).nonzero()[0], (te >= up).nonzero()[0])
-	singletons = np.intersect1d((ts==lo).nonzero()[0],(te==lo).nonzero()[0])
-	n_all_inframe = np.append(n_all_inframe,singletons)
-	# tot br length within time frame
-	n_t_ts,n_t_te=zeros(len(ts)),zeros(len(ts))
-	n_t_ts[n_all_inframe]= ts[n_all_inframe]   # speciation events before time frame
-	n_t_ts[(n_t_ts<lo).nonzero()]=lo           # for which length is accounted only from $up$ rather than from $ts$	
-	n_t_te[n_all_inframe]= te[n_all_inframe]   # extinction events in time frame
-	n_t_te[np.intersect1d((n_t_te>up).nonzero()[0], n_all_inframe)]=up     # for which length is accounted only until $lo$ rather than to $te$
-	# vector of br lengths within time frame  #(scaled by rho)
-	n_S=((n_t_te[n_all_inframe]-n_t_ts[n_all_inframe])) #*rhos[n_all_inframe])
-	return n_S
+def get_br(t0,t1):
+	s, e  = ts+0., te+0.
+	s[s<t0] = t0
+	e[e>t1] = t1
+	dt = e - s
+	return np.sum(dt[dt>0])
 
-
-#get births, deaths, and diversity between lo and up
 def precompute_events(arg):
-	[lo,up]=arg
-	# indexes of the species within time frame
-	L_events=np.intersect1d((ts >= lo).nonzero()[0], (ts < up).nonzero()[0])
-	M_events=np.intersect1d((te >= lo).nonzero()[0], (te < up).nonzero()[0])	
-	# get total time lived (or tot branch length) within time window
-	n_S = get_sp_in_frame_br_length(lo,up)
-	return len(L_events), len(M_events), sum(n_S)
-
+	[t0,t1]=arg
+	n_spec_events = len(np.intersect1d((ts >= t0).nonzero()[0], (ts < t1).nonzero()[0]))
+	n_exti_events = len(np.intersect1d((te > t0).nonzero()[0], (te <= t1).nonzero()[0]))
+	tot_br_length = get_br(t0,t1)  
+	return n_spec_events, n_exti_events, tot_br_length
 
 def approx_log_fact(n):
 	# http://mathworld.wolfram.com/StirlingsApproximation.html
