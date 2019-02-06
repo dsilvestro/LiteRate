@@ -7,15 +7,13 @@ from scipy.special import gamma
 from scipy.special import beta as f_beta
 import random as rand
 import platform, time
-import multiprocessing, thread
-import multiprocessing.pool
 import csv
 from scipy.special import gdtr, gdtrix
 from scipy.special import betainc
 import scipy.stats
 np.set_printoptions(suppress=True)
 np.set_printoptions(precision=3)  
-print "\n\n             LiteRate - 20190205\n"
+print("\n\n             LiteRate - 20190205\n")
 
 ####### BEGIN FUNCTIONS for RJMCMC #######
 def prior_sym_beta(x,a): 
@@ -140,7 +138,7 @@ def BD_lik_Keiding(L_acc_vec,M_acc_vec):
 		Blik = sum(log(L_acc_vec)*sp_events_bin - L_acc_vec*br_length_bin) 
 		Dlik = sum(log(M_acc_vec)*ex_events_bin - M_acc_vec*br_length_bin) 
 	except:
-		print len(L_acc_vec),len(M_acc_vec),len(sp_events_bin)
+		print(len(L_acc_vec),len(M_acc_vec),len(sp_events_bin))
 		sys.exit()
 	return sum(Blik)+sum(Dlik)
 
@@ -167,8 +165,8 @@ def update_multiplier_freq(q,d=1.1,f=0.75):
 	l = 2*log(d)
 	m = exp(l*(u-.5))
 	m[ff==0] = 1.
-	# new vector of rates
- 	new_q = q * m
+	new_q = q * m
+   # new vector of rates
 	# Hastings ratio
 	U=sum(log(m))
 	return new_q,U
@@ -318,12 +316,12 @@ def runMCMC(arg):
 			ex_logfile.flush()
 		
 		if iteration % p_freq ==0:
-			print iteration, likA, priorA
+			print(iteration, likA, priorA)
 			# print on screen
-			print "\tsp.times:", timesLA
-			print "\tex.times:", timesMA
-			print "\tsp.rates:", L_acc
-			print "\tex.rates:", M_acc
+			print("\tsp.times:", timesLA)
+			print("\tex.times:", timesMA)
+			print("\tsp.rates:", L_acc)
+			print("\tex.rates:", M_acc)
 		
 		iteration +=1 
 
@@ -340,6 +338,9 @@ p.add_argument('-seed',    type=int, help='seed (set to -1 to make it random)', 
 #0: time AD and present set to most recent TE, 1: time AD present user defined """, default= 0, metavar= 0)
 p.add_argument('-const_rates',    type=int, help="set to: 1 for constant B/I and D rates" , default= 0, metavar= 0)
 p.add_argument('-model_BDI',      type=int, help='0: birth-death; 1: immigration-death; 2 birth-death (Keiding likelihood)', default= 0, metavar= 0)
+p.add_argument('-TBP', help='Default is AD. Include for TBP.', default=False, action='store_true')
+p.add_argument('-death_jitter', type=float, help="""Determines the amount to jitter death times.\
+               If set to 0, lineages that lived and died in same time bin will be excluded from branch length.""", default= .5, metavar= .5)
 p.add_argument('-use_rate_HP',    type=int, help='0: no hyper-prior on rates, 1: hyper-prior on rates', default= 1, metavar= 1)
 p.add_argument('-Poisson_prior',  type=float, help='0: use hyper-prior on n. shifts, >0:  fixed prior on n. shifts', default= 0, metavar= 0)
 p.add_argument('-rm_first_bin',   type=float, help='if set to 1 it removes the first time bin (if max time is not the origin)', default= 0, metavar= 0)
@@ -356,6 +357,8 @@ np.random.seed(rseed)
 n_iterations = args.n
 s_freq = args.s
 p_freq = args.p
+TBP=args.TBP
+
 model_BDI = args.model_BDI
 if model_BDI==0: out_name = "_BD"
 if model_BDI==1: out_name = "_ID"
@@ -373,45 +376,14 @@ f = args.d
 t_file=np.loadtxt(f, skiprows=1)
 ts_years = t_file[:,2]
 te_years = t_file[:,3]
-#if args.present_year== -1: # to load regular pyrate input
-#	ts = ts_years
-#	te = te_years
-#elif args.present_year==0: # find max year and set to present
-#	ts = max(te_years) - ts_years 
-#	te = max(te_years) - te_years 
-#else: # user-spec present year
-#	ts_actual = args.present_year - ts_years 
-#	te_actual = args.present_year - te_years 
-#	#__  tbl = np.loadtxt("all_bands_1newdata.tsv",skiprows=1)
-#	#__  ts = tbl[:,2]
-#	#__  te = tbl[:,3]	
-#	#__  Dt = []
-#	#__  n_spec = [] # speciation events
-#	#__  n_exti = [] # ext events
-#	#__  for i in range(int(min(ts)), 1+int(max(te))):
-#	#__  	te_temp = te[ts<=i] # exclude lineages originating later than i
-#	#__  	div = len(ts[ts<=i])-len(te_temp[te_temp<=i])
-#	#__  	#print i, len(ts[ts<=i]), len(te_temp[te_temp<i]), te_temp
-#	#__  	Dt.append(div)
-#	#__  	print(div)
-#	#__  	n_spec.append(len(ts[ts==i]))
-#	#__  	n_exti.append(len(te[te==i]))
-#	#__  n_exti[len(n_exti)-1] = 0
-#	#__  Dt[len(Dt)-1] = len(te[te==args.present_year])
-#	#__  Dt = np.array(Dt)
-#	#__  n_spec = np.array(n_spec)
-#	#__  n_exti = np.array(n_exti)
-#	
-#	ts,te = ts_actual,te_actual
+if TBP==True:
+    ts= max(ts_years)-ts_years
+    te= max(ts_years)- te_years
+else:
+    ts = ts_years
+    te = te_years
 
-ts = ts_years
-te = te_years
-
-e_plus = 0.5
-te = te + e_plus
-	
-
-#ts,te = np.round(ts),np.round(te)
+te = te + args.death_jitter
 
 
 start_time = min(ts)
@@ -421,24 +393,27 @@ bins = np.arange(start_time,end_time+1)
 
 out_dir= os.path.dirname(f)
 
-print out_dir
 if out_dir=="": 
 	out_dir= os.getcwd()
 file_name = os.path.splitext(os.path.basename(f))[0]
+print("OUTDIR",out_dir)
 
 ####### MCMC log files #######
 out_dir = "%s/literate_mcmc_logs" % (out_dir)
-try: os.mkdir(out_dir) 
-except: pass
+try:
+	os.mkdir(out_dir) 
+except OSError as e:
+	print(e)
+	pass
 
 out_log = "%s/%s%s_mcmc.log" % (out_dir, file_name,out_name)
-mcmc_logfile = open(out_log , "w",0) 
+mcmc_logfile = open(out_log , "w") 
 mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg",\
 "K_l","K_m","root_age","death_age","gamma_rate_hp_BI","gamma_rate_hp_D","poisson_rate_hp"])+'\n')
 out_log = "%s/%s%s_sp_rates.log" % (out_dir, file_name, out_name )
-sp_logfile = open(out_log , "w",0) 
+sp_logfile = open(out_log , "w") 
 out_log = "%s/%s%s_ex_rates.log" % (out_dir, file_name, out_name )
-ex_logfile = open(out_log , "w",0) 
+ex_logfile = open(out_log , "w") 
 
 ####### PRECOMPUTE VECTORS #######
 sp_events_bin = []
@@ -464,9 +439,9 @@ if rm_first_bin:
 	ex_events_bin = ex_events_bin[1:]
 	br_length_bin = br_length_bin[1:]
 
-print sp_events_bin
-print ex_events_bin
-print br_length_bin
+print(sp_events_bin)
+print(ex_events_bin)
+print(br_length_bin)
 
 
 n_bins = len(sp_events_bin)

@@ -91,10 +91,9 @@ def get_marginal_rates(f_name,start_age,end_age,nbins=0,burnin=0.2):
 	if nbins==0:
 		nbins = abs(int(end_age-start_age))
 	post_rate=f.readlines()
-	if present_year == -1: 
-		bins_histogram = np.linspace(start_age,end_age,nbins+1)	
-	else:
-		bins_histogram = np.linspace(end_age,start_age,nbins+1)	
+	bins_histogram = np.linspace(end_age,start_age,nbins+1)
+	print(start_age,end_age,bins_histogram)
+
 	marginal_rates_list = []
 	times_of_shift = []
 		
@@ -110,14 +109,10 @@ def get_marginal_rates(f_name,start_age,end_age,nbins=0,burnin=0.2):
 			ind_rates = np.arange(0,int(np.ceil(len(row)/2.)))
 			ind_shifts = np.arange(int(np.ceil(len(row)/2.)),len(row))
 			rates = row[ind_rates]
-			if present_year == -1: 
-				shifts = row[ind_shifts]
-				h = np.histogram(shifts,bins =bins_histogram)[0][::-1]
-				marginal_rates = rates[np.cumsum(h)]
-			else: 
-				shifts = row[ind_shifts]
-				h = np.histogram(shifts,bins =bins_histogram)[0]
-				marginal_rates = rates[np.cumsum(h)][::-1]
+
+			shifts = row[ind_shifts]
+			h = np.histogram(shifts,bins =bins_histogram)[0]
+			marginal_rates = rates[np.cumsum(h)][::-1]
 			
 			#print rates, marginal_rates, shifts,bins_histogram
 			#quit()
@@ -147,9 +142,10 @@ def get_marginal_rates(f_name,start_age,end_age,nbins=0,burnin=0.2):
 
 def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulation=1):
 	out_str = "\n"
-	if present_year == -1: 
-		out_str += print_R_vec("\ntime",-res[0])
-		minXaxis,maxXaxis= -max_age,-min_age
+	if TBP == True: 
+		out_str += print_R_vec("\ntime",res[0]-min_age)
+		print(out_str)
+		minXaxis,maxXaxis= max_age-min_age,min_age-min_age
 		time_lab = "BP"
 	else:
 		out_str += print_R_vec("\ntime",res[0])
@@ -170,15 +166,14 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
 		out_str += "\nlines(time,log10(rate), col = '%s', lwd=2)" % (col)
 		
 	# add barplot rate shifts
-	if present_year == -1: bins_histogram = np.linspace(min_age,max_age,len(res[0]))
-	else: bins_histogram = np.linspace(max_age,min_age,len(res[0]))
+	bins_histogram = np.linspace(max_age,min_age,len(res[0]))
 	if len(res[4])>1: # rate shift sampled at least once
 		h = np.histogram(res[4],bins =bins_histogram) #,density=1)
 	else:
 		h = [np.zeros(len(bins_histogram)-1),bins_histogram]
 	a = h[1]
 	mids = (a-abs(a[1]-a[0])/2.)[1:]
-	if present_year == -1: out_str += print_R_vec("\nmids",-mids)
+	if TBP==True: out_str += print_R_vec("\nmids",-mids[::-1])
 	else: out_str += print_R_vec("\nmids",mids)
 	out_str += print_R_vec("\ncounts",h[0]/float(res[5]))
 	out_str += "\nplot(mids,counts,type = 'h', xlim = c(%s,%s), ylim=c(0,%s), ylab = 'Frequency of rate shift', xlab = 'Time (%s)',lwd=5,col='%s')" \
@@ -263,10 +258,9 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 p = argparse.ArgumentParser() #description='<input file>') 
 p.add_argument('input_data', metavar='<path to log files>', type=str,help='Input python file - see template',default="")
 p.add_argument('-logT', metavar='1', type=int,help='set to 1 to log transform rates',default=0)
-p.add_argument('-present_year',    type=int, help='set to > present AD to plot in time AD instead of time BP', default= -1, metavar= -1)
+p.add_argument('-TBP', help='Default is AD. Include for TBP.', default=False, action='store_true')
 
 args = p.parse_args()
 path_dir_log_files = args.input_data
-present_year = args.present_year
-
+TBP=args.TBP
 plot_marginal_rates(path_dir_log_files,logT=args.logT)
