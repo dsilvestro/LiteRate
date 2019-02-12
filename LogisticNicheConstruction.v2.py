@@ -26,6 +26,8 @@ p.add_argument('-m_birth', type=int, help='0) use const b rates 1) niche dep b',
 p.add_argument('-m_death', type=int, help='0) use const d rates 1) niche dep d', default=1,metavar=1)
 p.add_argument('-constK', type=int, help='1) use const K 0) logistic K', default=0,metavar=0)
 p.add_argument('-rm_first_bin',    type=float, help='if set to 1 it removes the first time bin', default= 0, metavar= 0)
+p.add_argument('-death_jitter', type=float, help="""Determines the amount to jitter death times.\
+               If set to 0, lineages that lived and died in same time bin will be excluded from branch length.""", default= .5, metavar= .5)
 p.add_argument('-n',       type=int, help='n. MCMC iterations', default=1000000, metavar=1000000)
 p.add_argument('-d',       type=str, help='data file', default="", metavar="", required=True) 
 
@@ -66,6 +68,7 @@ def precompute_events(arg):
 	n_exti_events = len(np.intersect1d((te > t0).nonzero()[0], (te <= t1).nonzero()[0]))
 	tot_br_length = get_br(t0,t1)  
 	return n_spec_events, n_exti_events, tot_br_length
+
 
 def approx_log_fact(n):
 	# http://mathworld.wolfram.com/StirlingsApproximation.html
@@ -192,7 +195,7 @@ tbl = np.loadtxt(args.d,skiprows=1)
 
 ts = tbl[:,2]
 te = tbl[:,3]
-
+te = te + args.death_jitter
 
 
 
@@ -201,6 +204,7 @@ ORIGIN  = min(ts)
 
 
 ####### PRECOMPUTE VECTORS #######
+
 n_spec = []
 n_exti = []
 Dt = []
@@ -212,10 +216,10 @@ for i in range(len(bins)-1):
 	Dt.append(c)
 del bins
 
-n_spec = np.array(n_spec)
-n_exti = np.array(n_exti)
-Dt = np.array(Dt)
-
+n_spec = np.array(n_spec)[:-1]
+n_exti = np.array(n_exti)[:-1]
+Dt = np.array(Dt)[:-1]
+print("Dt",Dt)
 
 
 if args.rm_first_bin:
@@ -225,7 +229,6 @@ if args.rm_first_bin:
 	Dt = Dt[1:]
 	ORIGIN +=1 
 n_time_bins = len(Dt)
-
 
 
 out=""
