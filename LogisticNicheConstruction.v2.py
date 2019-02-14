@@ -28,6 +28,9 @@ p.add_argument('-constK', type=int, help='1) use const K 0) logistic K', default
 p.add_argument('-rm_first_bin',    type=float, help='if set to 1 it removes the first time bin', default= 0, metavar= 0)
 p.add_argument('-death_jitter', type=float, help="""Determines the amount to jitter death times.\
                If set to 0, lineages that lived and died in same time bin will be excluded from branch length.""", default= .5, metavar= .5)
+p.add_argument('-TBP', help='Default is AD. Include for TBP.', default=False, action='store_true')
+p.add_argument('-last_year',    type=int, help='This is a convenience function if you would like to specify a different end to your dataset. Not compatible with TBP.', default= -1, metavar= -1)
+
 p.add_argument('-n',       type=int, help='n. MCMC iterations', default=1000000, metavar=1000000)
 p.add_argument('-d',       type=str, help='data file', default="", metavar="", required=True) 
 
@@ -191,10 +194,22 @@ def calc_prior(args):
 
 # read data
 #tbl = np.loadtxt("/home/bernie/Downloads/all_bands_1.tsv",skiprows=1)
-tbl = np.loadtxt(args.d,skiprows=1)
+#tbl = np.loadtxt(args.d,skiprows=1)
+tbl=np.genfromtxt(args.d, skip_header=1)
+ts_years = tbl[:,2]
+te_years = tbl[:,3]
+if args.TBP==True:
+    ts= max(ts_years)-ts_years
+    te= max(ts_years)- te_years
+else:
+	if args.last_year!=-1:
+		ts=ts_years[ts_years<=args.last_year]
+		te=te_years[ts_years<=args.last_year]
+		te[te>args.last_year]=args.last_year
+	else:
+		ts = ts_years
+		te = te_years
 
-ts = tbl[:,2]
-te = tbl[:,3]
 te = te + args.death_jitter
 
 

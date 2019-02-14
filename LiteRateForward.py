@@ -149,7 +149,6 @@ def BDI_partial_lik(L_acc_vec,M_acc_vec):
 	k = br_length_bin # diversity trajectory	
 	Uk = sp_events_bin   # number up steps
 	Dk = ex_events_bin   # number down steps
-	
 	lik_BI = sum(log(L*k+I)*Uk - (L*k+I)*Tk)
 	lik_D = sum(log(M*k)*Dk -(M*k*Tk))
 	
@@ -339,6 +338,7 @@ p.add_argument('-seed',    type=int, help='seed (set to -1 to make it random)', 
 p.add_argument('-const_rates',    type=int, help="set to: 1 for constant B/I and D rates" , default= 0, metavar= 0)
 p.add_argument('-model_BDI',      type=int, help='0: birth-death; 1: immigration-death; 2 birth-death (Keiding likelihood)', default= 0, metavar= 0)
 p.add_argument('-TBP', help='Default is AD. Include for TBP.', default=False, action='store_true')
+p.add_argument('-last_year',    type=int, help='This is a convenience function if you would like to specify a different end to your dataset. Not compatible with TBP.', default= -1, metavar= -1)
 p.add_argument('-death_jitter', type=float, help="""Determines the amount to jitter death times.\
                If set to 0, lineages that lived and died in same time bin will be excluded from branch length.""", default= .5, metavar= .5)
 p.add_argument('-use_rate_HP',    type=int, help='0: no hyper-prior on rates, 1: hyper-prior on rates', default= 1, metavar= 1)
@@ -373,15 +373,22 @@ rm_first_bin = args.rm_first_bin
 const_rates  = args.const_rates
 ####### Parse DATA #######
 f = args.d
-t_file=np.loadtxt(f, skiprows=1)
+t_file=np.genfromtxt(f, skip_header=1)
 ts_years = t_file[:,2]
 te_years = t_file[:,3]
 if TBP==True:
     ts= max(ts_years)-ts_years
     te= max(ts_years)- te_years
 else:
-    ts = ts_years
-    te = te_years
+	if args.last_year!=-1:
+		ts=ts_years[ts_years<=args.last_year]
+		te=te_years[ts_years<=args.last_year]
+		te[te>args.last_year]=args.last_year
+	else:
+		ts = ts_years
+		te = te_years
+	
+		
 
 te = te + args.death_jitter
 
