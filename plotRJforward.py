@@ -186,6 +186,25 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
 	out_str += "\nabline(h=bf6, lty=2)"
 	return out_str
 
+def plot_net_diversity(rate,time,col,min_age,max_age,plot_title):
+	out_str = "\n"
+	if TBP == True: 
+		out_str += print_R_vec("\ntime",time-min_age)
+		print(out_str)
+		minXaxis,maxXaxis= max_age-min_age,min_age-min_age
+		time_lab = "BP"
+	else:
+		out_str += print_R_vec("\ntime",time)
+		minXaxis,maxXaxis= max_age,min_age
+		time_lab = "AD"
+	out_str += "\npar(mfrow=c(1,1))\n"
+	out_str += print_R_vec("\nnet_rate",rate[::-1])
+	out_str += "\nplot(time,net_rate,type = 'l', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Net Rate', xlab = 'Time (%s)',lwd=2, main='%s', col= '%s' )" \
+			% (min(0,1.1*np.nanmin(rate)),1.1*np.nanmax(rate),minXaxis,maxXaxis,time_lab,plot_title,col) 
+	out_str += "\nabline(h=0,lty=2)\n"
+	out_str += "\npar(mfrow=c(2,3))\n"
+	return out_str
+
 def get_K_values(mcmc_tbl,head,col,par,burnin=0.2):
 	burnin=min(int(burnin*len(mcmc_tbl)),int(0.9*len(mcmc_tbl)))
 	post_tbl = mcmc_tbl[burnin:,:]
@@ -230,17 +249,19 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 			else:
 				min_age_t, max_age_t = min_age, max_age
 			nbins = int(abs(max_age_t-min_age_t)/float(bin_size))
-			colors = ["#4c4cec","#e34a33"] # sp and ex rate
+			colors = ["#4c4cec","#e34a33","#32CD32"] # sp and ex rate
 			# sp file
 			r_str += get_K_values(tbl,head,colors[0],"l",burnin=0.2)
 			f_name = mcmc_file.replace("mcmc.log","sp_rates.log")
-			res = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=0.2)
-			r_str += get_r_plot(res,col=colors[0],parameter="Speciation rate",min_age=min_age_t,max_age=max_age_t,plot_title=name_file,plot_log=logT)
+			resS = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=0.2)
+			r_str += get_r_plot(resS,col=colors[0],parameter="Speciation rate",min_age=min_age_t,max_age=max_age_t,plot_title=name_file,plot_log=logT)
 			# ex file
 			r_str += get_K_values(tbl,head,colors[1],"m",burnin=0.2)
 			f_name = mcmc_file.replace("mcmc.log","ex_rates.log")
-			res = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=0.2)
-			r_str += get_r_plot(res,col=colors[1],parameter="Extinction rate",min_age=min_age_t,max_age=max_age_t,plot_title="",plot_log=logT,run_simulation=0)
+			resE = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=0.2)
+			r_str += get_r_plot(resE,col=colors[1],parameter="Extinction rate",min_age=min_age_t,max_age=max_age_t,plot_title="",plot_log=logT,run_simulation=0)
+			resN=resS[1]-resE[1]
+			r_str += plot_net_diversity(resN,resS[0],col=colors[2],min_age=min_age_t,max_age=max_age_t,plot_title=name_file)
 		#except:
 		#	print "Could not read file:", mcmc_file
 	r_str += "\n\nn <- dev.off()"
