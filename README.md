@@ -3,7 +3,13 @@ Fast estimation of birth and death rates from large data setusing reversible jum
 
 Modified code from [PyRate](https://github.com/dsilvestro/PyRate) designed for Cultural diversification
 
+# Logistic Niche Growth Model
 
+Nested model where birth and death rates are a function of diversity and the growth of a niche through a logistic curve
+
+# SimulateRate
+
+Simulator for birth death rates under different processes. Currently written for logistic niche growth but adaptable. Also simple set up for approximate Bayesian computation.
 
 ### multi-trait extinction model (MTE)
 example input file: `example_data/Example_multiDiscreteTraitDep.txt`
