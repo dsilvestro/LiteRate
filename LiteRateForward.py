@@ -149,10 +149,10 @@ def BDI_partial_lik(L_acc_vec,M_acc_vec):
 	k = br_length_bin # diversity trajectory	
 	Uk = sp_events_bin   # number up steps
 	Dk = ex_events_bin   # number down steps
-	lik_BI = sum(log(L*k+I)*Uk - (L*k+I)*Tk)
-	lik_D = sum(log(M*k)*Dk -(M*k*Tk))
-	
-	lik = Uk*log(k*L+I) + Dk*log(M*k) - Tk*(k*(L+M)+I)
+	#lik_BI = sum(log(L[k>0]*k[k>0]+I[k>0])*Uk[k>0] - (L[k>0]*k[k>0]+I[k>0])*Tk[k>0])
+	#lik_D = sum(log(M*k)*Dk -(M*k*Tk))
+
+	lik = Uk[k>0]*log(k[k>0]*L[k>0]+I[k>0]) + Dk[k>0]*log(M[k>0]*k[k>0]) - Tk[k>0]*(k[k>0]*(L[k>0]+M[k>0])+I[k>0])
 	#quit()
 	return sum(lik) # lik_BI + lik_D
 
@@ -338,7 +338,8 @@ p.add_argument('-seed',    type=int, help='seed (set to -1 to make it random)', 
 p.add_argument('-const_rates',    type=int, help="set to: 1 for constant B/I and D rates" , default= 0, metavar= 0)
 p.add_argument('-model_BDI',      type=int, help='0: birth-death; 1: immigration-death; 2 birth-death (Keiding likelihood)', default= 0, metavar= 0)
 p.add_argument('-TBP', help='Default is AD. Include for TBP.', default=False, action='store_true')
-p.add_argument('-last_year',    type=int, help='This is a convenience function if you would like to specify a different end to your dataset. Not compatible with TBP.', default= -1, metavar= -1)
+p.add_argument('-first_year',    type=int, help='This is a convenience function if you would like to specify a different start to your dataset. Unspecified for TBP.', default= -1, metavar= -1)
+p.add_argument('-last_year',    type=int, help='This is a convenience function if you would like to specify a different end to your dataset. Unspecified for TBP.', default= -1, metavar= -1)
 p.add_argument('-death_jitter', type=float, help="""Determines the amount to jitter death times.\
                If set to 0, lineages that lived and died in same time bin will be excluded from branch length.""", default= .5, metavar= .5)
 p.add_argument('-use_rate_HP',    type=int, help='0: no hyper-prior on rates, 1: hyper-prior on rates', default= 1, metavar= 1)
@@ -380,6 +381,9 @@ if TBP==True:
     ts= max(ts_years)-ts_years
     te= max(ts_years)- te_years
 else:
+	if args.first_year!=-1:
+		ts_years=ts_years[ts_years>=args.first_year]
+		te_years=te_years[ts_years>=args.first_year]
 	if args.last_year!=-1:
 		ts=ts_years[ts_years<=args.last_year]
 		te=te_years[ts_years<=args.last_year]
@@ -403,7 +407,6 @@ out_dir= os.path.dirname(f)
 if out_dir=="": 
 	out_dir= os.getcwd()
 file_name = os.path.splitext(os.path.basename(f))[0]
-print("OUTDIR",out_dir)
 
 ####### MCMC log files #######
 out_dir = "%s/literate_mcmc_logs" % (out_dir)
@@ -421,6 +424,8 @@ out_log = "%s/%s%s_sp_rates.log" % (out_dir, file_name, out_name )
 sp_logfile = open(out_log , "w") 
 out_log = "%s/%s%s_ex_rates.log" % (out_dir, file_name, out_name )
 ex_logfile = open(out_log , "w") 
+out_log = "%s/%s%s_div.log" % (out_dir, file_name,out_name)
+div_logfile = open(out_log , "w") 
 
 ####### PRECOMPUTE VECTORS #######
 sp_events_bin = []
@@ -434,22 +439,22 @@ for i in range(int(np.min(ts)),int(np.max(te))):
 	br_length_bin.append(c)
 	#print i, i+1, b
 
-sp_events_bin = np.array(sp_events_bin)
-ex_events_bin = np.array(ex_events_bin)
-br_length_bin = np.array(br_length_bin)
-
-
-
 if rm_first_bin:
 	# remove first bin
 	sp_events_bin = sp_events_bin[1:]
 	ex_events_bin = ex_events_bin[1:]
 	br_length_bin = br_length_bin[1:]
 
-print(sp_events_bin)
-print(ex_events_bin)
-print(br_length_bin)
+#write diversity. plotRj uses this
+div_rows = zip(sp_events_bin,ex_events_bin,br_length_bin)
+div_logfile.write('sp_events\tex_events\tbr_length\n')
+writer = csv.writer(div_logfile,delimiter='\t')
+for row in div_rows: writer.writerow(row)
 
+
+sp_events_bin = np.array(sp_events_bin)
+ex_events_bin = np.array(ex_events_bin)
+br_length_bin = np.array(br_length_bin)
 
 n_bins = len(sp_events_bin)
 Tk = np.ones(n_bins) # time spent in state

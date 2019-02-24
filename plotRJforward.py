@@ -86,6 +86,7 @@ def get_marginal_rates(f_name,start_age,end_age,nbins=0,burnin=0.2):
 	# 1. a vector of times (age of each marginal rate)
 	# 2-4. mean, min and max marginal rates (95% HPD)
 	# 5. a vector of times of rate shift
+	# 6. the marginal rates (used to compute net diversification rate)
 	#f = file(f_name,'U')
 	f = open(f_name,'r')
 	if nbins==0:
@@ -137,14 +138,13 @@ def get_marginal_rates(f_name,start_age,end_age,nbins=0,burnin=0.2):
 	time_frames = time_frames[1:]
 	#print len(time_frames),len(mean_rates), 
 	n_mcmc_samples = len(post_rate)-burnin # number of samples used to normalize frequencies of rate shifts
-	return [time_frames,mean_rates,np.array(min_rates),np.array(max_rates),np.array(times_of_shift),n_mcmc_samples]
+	return [time_frames,mean_rates,np.array(min_rates),np.array(max_rates),np.array(times_of_shift),n_mcmc_samples,marginal_rates_list]
 
 
 def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulation=1):
 	out_str = "\n"
 	if TBP == True: 
 		out_str += print_R_vec("\ntime",res[0]-min_age)
-		print(out_str)
 		minXaxis,maxXaxis= max_age-min_age,min_age-min_age
 		time_lab = "BP"
 	else:
@@ -186,22 +186,47 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
 	out_str += "\nabline(h=bf6, lty=2)"
 	return out_str
 
-def plot_net_diversity(rate,time,col,min_age,max_age,plot_title):
+
+def plot_net_rate_diversity(div_log,resS,resE,col,min_age,max_age,plot_title,burnin=.2):
+	#computes and plots net RATES
+	marginal_rates_list	= resS[6]-resE[6]
+	mean_rates= np.mean(marginal_rates_list,axis=0)
+	min_rates,max_rates=[],[]
+	nbins = abs(int(max_age-min_age))
+	for i in range(nbins):
+		hpd = calcHPD(marginal_rates_list[:,i],0.95)
+		min_rates += [hpd[0]]
+		max_rates += [hpd[1]]
+
 	out_str = "\n"
+	out_str += "\npar(mfrow=c(1,2))\n"
+
 	if TBP == True: 
 		out_str += print_R_vec("\ntime",time-min_age)
 		print(out_str)
 		minXaxis,maxXaxis= max_age-min_age,min_age-min_age
 		time_lab = "BP"
 	else:
-		out_str += print_R_vec("\ntime",time)
+		out_str += print_R_vec("\ntime",resS[0])
 		minXaxis,maxXaxis= max_age,min_age
 		time_lab = "AD"
-	out_str += "\npar(mfrow=c(1,1))\n"
-	out_str += print_R_vec("\nnet_rate",rate[::-1])
-	out_str += "\nplot(time,net_rate,type = 'l', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Net Rate', xlab = 'Time (%s)',lwd=2, main='%s', col= '%s' )" \
-			% (min(0,1.1*np.nanmin(rate)),1.1*np.nanmax(rate),minXaxis,maxXaxis,time_lab,plot_title,col) 
+	#right now I don't have support for log, but I think this is less likely to be needed for net rates
+	out_str += print_R_vec("\nnet_rate",mean_rates[::-1])
+	out_str += print_R_vec("\nnet_minHPD",np.array(min_rates[::-1]))
+	out_str += print_R_vec("\nnet_maxHPD",np.array(max_rates[::-1]))
+	out_str += "\nplot(time,time,type = 'n', ylim = c(%s, %s), xlim = c(%s,%s), ylab = 'Net Rate', xlab = 'Time (%s)',lwd=2, main='%s', col= '%s' )" \
+			% (min(0,1.1*np.nanmin(min_rates)),1.1*np.nanmax(max_rates),minXaxis,maxXaxis,time_lab,plot_title,col) 
+	out_str += "\npolygon(c(time, rev(time)), c(net_maxHPD, rev(net_minHPD)), col = alpha('%s',0.3), border = NA)" % (col)
+	out_str += "\nlines(time,net_rate, col = '%s', lwd=2)" % (col)
 	out_str += "\nabline(h=0,lty=2)\n"
+	
+	#plot net_diversity
+	tbl=np.loadtxt(div_log, skiprows=1)
+	net_div=tbl[:,2]
+	out_str += print_R_vec("\nnet_diversity",net_div)
+	out_str += "\nplot(time,net_diversity,type = 'l', ylab = 'Net Diversity', xlab = 'Time (%s)',lwd=2, main='%s', col= '%s' )" \
+			% (time_lab,plot_title,col)
+	
 	out_str += "\npar(mfrow=c(2,3))\n"
 	return out_str
 
@@ -260,8 +285,9 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 			f_name = mcmc_file.replace("mcmc.log","ex_rates.log")
 			resE = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=0.2)
 			r_str += get_r_plot(resE,col=colors[1],parameter="Extinction rate",min_age=min_age_t,max_age=max_age_t,plot_title="",plot_log=logT,run_simulation=0)
-			resN=resS[1]-resE[1]
-			r_str += plot_net_diversity(resN,resS[0],col=colors[2],min_age=min_age_t,max_age=max_age_t,plot_title=name_file)
+			
+			f_name = mcmc_file.replace("mcmc.log","div.log")
+			r_str += plot_net_rate_diversity(f_name,resS,resE,col=colors[2],min_age=min_age_t,max_age=max_age_t,plot_title=name_file)
 		#except:
 		#	print "Could not read file:", mcmc_file
 	r_str += "\n\nn <- dev.off()"
