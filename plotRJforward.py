@@ -142,7 +142,7 @@ def get_marginal_rates(f_name,start_age,end_age,nbins=0,burnin=0.2):
 
 
 def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulation=1):
-	out_str = "\n"
+	out_str = "\n#%s Plot" % parameter
 	if TBP == True: 
 		out_str += print_R_vec("\ntime",res[0]-min_age)
 		minXaxis,maxXaxis= max_age-min_age,min_age-min_age
@@ -173,6 +173,7 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
 		h = [np.zeros(len(bins_histogram)-1),bins_histogram]
 	a = h[1]
 	mids = (a-abs(a[1]-a[0])/2.)[1:]
+	out_str+="\n#Frequency of shifts"
 	if TBP==True: out_str += print_R_vec("\nmids",-mids[::-1])
 	else: out_str += print_R_vec("\nmids",mids)
 	out_str += print_R_vec("\ncounts",h[0]/float(res[5]))
@@ -198,7 +199,7 @@ def plot_net_rate(resS,resE,col,min_age,max_age,plot_title,burnin=.2):
 		min_rates += [hpd[0]]
 		max_rates += [hpd[1]]
 
-	out_str = "\n"
+	out_str = "\n#Net Rate"
 
 	if TBP == True: 
 		out_str += print_R_vec("\ntime",resS[0]-min_age)
@@ -222,9 +223,9 @@ def plot_net_rate(resS,resE,col,min_age,max_age,plot_title,burnin=.2):
 	return out_str
 
 def plot_net_diversity(div_log,resS,col,min_age,max_age,plot_title):
+	out_str = "\n#Net Diversity"
 	if TBP == True: 
 		out_str += print_R_vec("\ntime",resS[0]-min_age)
-		print(out_str)
 		minXaxis,maxXaxis= max_age-min_age,min_age-min_age
 		time_lab = "BP"
 	else:
@@ -233,7 +234,6 @@ def plot_net_diversity(div_log,resS,col,min_age,max_age,plot_title):
 		time_lab = "AD"
 		#plot net_diversity
 
-	out_str = "\n"
 	tbl=np.loadtxt(div_log, skiprows=1)
 	net_div=tbl[:,2]
 	out_str += print_R_vec("\nnet_diversity",net_div)
@@ -252,7 +252,8 @@ def get_K_values(mcmc_tbl,head,col,par,burnin=0.2):
 	print( h)
 	unique, counts = np.unique(post_tbl[:,h], return_counts=True)
 	print( unique, counts)
-	out_str  = print_R_vec("\nunique",unique)
+	out_str = '\n#Number Shifts'
+	out_str += print_R_vec("\nunique",unique)
 	out_str += print_R_vec("\ncounts",counts)
 	out_str += "\nplot(unique,counts,type = 'h', xlim = c(0,%s), ylab = 'Frequency', xlab = 'n. shifts',lwd=5,col='%s')" \
 	    % (np.max(post_tbl[:,np.array([h1,h2])])+1,col)
@@ -286,25 +287,30 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
 			else:
 				min_age_t, max_age_t = min_age, max_age
 			nbins = int(abs(max_age_t-min_age_t)/float(bin_size))
-			colors = ["#4c4cec","#e34a33","#32CD32"] # sp and ex rate
+			colors = ["#4c4cec","#e34a33","#32CD32"] # sp and ex rate   
 			# sp file
+			r_str += "\n###%s###\n" % name_file
 			r_str += get_K_values(tbl,head,colors[0],"l",burnin=0.2)
+			
 			f_name = mcmc_file.replace("mcmc.log","sp_rates.log")
 			resS = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=0.2)
 			r_str += get_r_plot(resS,col=colors[0],parameter="Speciation rate",min_age=min_age_t,max_age=max_age_t,plot_title=name_file,plot_log=logT)
 			
 			# ex file
-			r_str += get_K_values(tbl,head,colors[1],"m",burnin=0.2)
+			
 			f_name = mcmc_file.replace("mcmc.log","ex_rates.log")
 			resE = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=0.2)
 			
 			#net rate
-			r_str += plot_net_rate(resS,resE,col=colors[2],min_age=min_age_t,max_age=max_age_t,plot_title=name_file)
+			r_str += plot_net_rate(resS,resE,col=colors[2],min_age=min_age_t,max_age=max_age_t,plot_title='')
 			
+			#ex rates
+			r_str += get_K_values(tbl,head,colors[1],"m",burnin=0.2)
 			r_str += get_r_plot(resE,col=colors[1],parameter="Extinction rate",min_age=min_age_t,max_age=max_age_t,plot_title="",plot_log=logT,run_simulation=0)
 			
+			#net div
 			f_name = mcmc_file.replace("mcmc.log","div.log")
-			r_str += plot_net_diversity(f_name,resS,col=colors[2],min_age=min_age_t,max_age=max_age_t,plot_title=name_file)
+			r_str += plot_net_diversity(f_name,resS,col=colors[2],min_age=min_age_t,max_age=max_age_t,plot_title='')
 			
 		#except:
 		#	print "Could not read file:", mcmc_file
