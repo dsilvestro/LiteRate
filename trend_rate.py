@@ -128,11 +128,9 @@ def __main__(parsed_args):
 		hastings= 0
 		rr = np.random.random()
 		if rr[1]<0.5 and CONST_K==0:
-			res = argsA+0
-			res[2:3] = update_sliding_win(res[2:3], m=-1, M=1, d=1.) #update midpoint (the only sliding window proposal)
+			res = update_slidwin_proposal_vec(res, m=-1, M=1, d=1.,f=update_sliding_window) #update midpoint (the only sliding window proposal)
 		else:
-			res = update_multiplier_proposal_vec(args,d=1.1,f=update_multiplier) #update everything with multipliers
-	
+			res = update_multiplier_proposal_vec(args,d=1.1,f=update_multiplier) #update everything with multipliers	
 		[args, hastings] = res
 		lik_res = likelihood_function(args,)
 		lik = np.sum(lik_res[0])
@@ -150,18 +148,13 @@ def __main__(parsed_args):
 		if iteration % sampling_freq==0:
 			#print lik,prior, args
 			argsO=deepcopy(argsA) #when you copy lists, makes sure you dont change things by reference
-			argsO[2] = ORIGIN+argsO[2]
-			argsO[6] = 1./argsO[6]
-			if CONST_K is False: argsO[3]+argsO[5] #if K is min then 
-			#argsO[3]=Dt[0]+argsA[3] #calculate Kmin
-			#argsO[4]= max_obs_diversity+argsA[4] #calculate Kmax
 			print(iteration, likA, argsO) #, args
-			l= [iteration,likA+priorA, likA,likBirthA,likDeathA, priorA] + list(argsO) + list(birth_rates) + list(death_rates) + list(niche) + list(nicheFrac)
+			l= [iteration,likA+priorA, likA,likBirthA,likDeathA, priorA] + list(argsO) + list(birth_rates) + list(death_rates)
 			wlog.writerow(l)
 			logfile.flush()
 			os.fsync(logfile)
 			
 		iteration += 1
 
-
+__main__(args)
    

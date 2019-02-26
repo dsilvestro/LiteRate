@@ -80,13 +80,11 @@ def update_multiplier_proposal_vec(q,d=1.1,f=0.75):
 def update_sliding_win_vec(i, m=0, M=1, d=0.05,f=.5):
 	S=np.shape(i)
 	ff= np.random.binomial(1,f,S)
-	ii = i+(np.random.random()-.5)*d
-	if ii>M: ii=M-(ii-M)
-	if ii<m: ii=(ii-m)+m
-	if ii>M: ii=(M-(ii-M))
-	if ii<m: ii=i
-	else: ii=i
-	return ii
+	ii = i+(np.random.random(S)-.5)*d	
+	ii[ii>M] = np.amax(M-np.abs(ii[ii>M]-M),m)
+	ii[ii<m] = np.amin(np.abs(ii[ii<m]-m)+m,M)
+	ii[ff=0]=i[ff=0]
+	return ii, np.zeros(S) #hastings ratio is 1, we're in log space
 
 
 ####### PRIORS #######
