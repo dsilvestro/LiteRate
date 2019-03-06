@@ -46,52 +46,45 @@ class Simulator(object):
 		
 		
 		self.scale=100 #this parameter is used to stretch out the simulation, approximating continuous time
-		self.root_age = -31.0	# amount of time to simulate. specified in TBP
+		self.origin = 1968	# amount of time to simulate. specified in TBP
+		self.present=2000
+		self.time_frame=self.present-self.origin+1
 		
-		#BIRTH LOGISTIC GROWTH PARAMETERS
-		self.b_logistic_params={
-		'l0':.525,
-		'K':self.maxSP, #max carrying cappacity
-		'A0':5, #min carrying capacity
-		'B':.000000001, #growth rate
-		'x0':self.root_age/2, #x value at midpoint
-		'v':1.0 #skew where growth is occuring the most greater than 1 skewed towards beginning, less than 1 skewed towards end.
+
+		#LOGISTIC GROWTH PARAMETERS
+		self.logistic_params={
+		'l_max':.5,
+		'm_max':.2,
+		'L':self.maxSP, #max carrying cappacity
+		'div_0':5, #min carrying capacity
+		'k':.000000001, #growth rate
+		'x0':self.time_frame, #x value at midpoint
+		'nu':1.0 #skew where growth is occuring the most greater than 1 skewed towards beginning, less than 1 skewed towards end.
 		#Must be greater than 0
 		}
 		
-		#DEATH LOGISTIC GROWTH PARAMS
-		self.d_logistic_params={
-		'm0':.208 , # this is used in
-		'K':self.maxSP, #max % of baseline death rate
-		'A0':0.6, #min % of baseline death rate
-		'B':.5, #growth rate
-		'x0':self.root_age+5.0, #x value at midpoint
-		'v':2.0 #skew where growth is occuring the most greater than 1 skewed towards beginning, less than 1 skewed towards end.
-		#Must be greater than 0
-		}
-		
-		
+		###SUSCEPTIBLE/INFECTED PARAMETERS
 		self.si_params={
 				'l0':.5,
 				'm0':.2,
 				'gamma':.7, #birth modulator
 				'threshold':.2,
 				}
-		#AGE-DEPENDENT EXTINCTION
+		#AGE-DEPENDENT EXTINCTION PARAMETERS
 		self.mean_lifespan=2.7
 		self.w_shape=0.5
 		self.w_scale = self.mean_lifespan/ gamma_func(1+1/self.w_shape)
 
+
+		###FIXED VECTOR PARAMETERS
 		self.m_vector=np.array([.2]*9 +[.6]*5+[.3]*15+[1.4]+[.2*.9])
 		self.m_vector=np.array([.2]*15 +[2] +[.2]*8+[.4]*7)
 		self.l_vector=np.array([.3,.3,.3]+ [.4]*5+ [.6]*7+ [.3]*6+ [.45,.45,.425,.425,.4]+ [.4]*5)
 
-	def __get_K_t(self,t,switch): #get carrying capacity at time t from logistic function
-		#THIS IS AGENERALIZED LOGISTIC FUNCTION
-		if switch == 'b': p=self.b_logistic_params
-		else: p=self.d_logistic_params
+	def __get_logistic(t):
+		p=self.logistic_params
 		t=t/self.scale
-		return p['A0'] + ( (p['K']) /(1 + exp(-p['B']*(t-p['x0'] ) ) )**(1/p['v']) )  #the scale * -1 part is not part of the equation
+		return( p['div_0'] + p['L']/((1+exp(-p['k']*(t-p['x0'])))**(1/p['nu'])) )
 
 
 	def __get_dKdT_tSI(self,D_t,K_t):
@@ -102,41 +95,30 @@ class Simulator(object):
 		return dKdT
 			
 	
-	def __calc_branchlength(self,ts,te,lo,hi):
-		born_bmax_index= (ts <= hi).nonzero()[0]
-		died_amin_index= (te >= lo).nonzero()[0]
-		nS_index=np.intersect1d(born_bmax_index,died_amin_index)
-		n_t_ts = ts[nS_index] #born before max time
-		n_t_ts[n_t_ts<lo] = lo # set to min time anybody who lived before timframe	
-		n_t_te = te[nS_index]
-		n_t_te[n_t_te>hi]=hi
-		branch_length=sum(n_t_te-n_t_ts)
-		return branch_length
+	def __calc_branchlength(self,ts,te,t0,t1):
+		return get_br(ts,te,t0,t1)
 
-
-	
-	def simulate(self,b_params=None,d_params=None,SI_params=None):
-		if b_params!=None: self.b_logistic_params=b_params
-		if d_params!=None: self.d_logistic_params=d_params
-		if SI_params!=None: self.SI_params=SI_params
-
+	def simulate(self,logistic_params=None):
+		if logistic_params!=None: self.b_logistic_params=b_params
+		#Could aternatively be set up to take fixed rates or different model equations here
+		K_vec= self.get_logistic(range(int(self.time_frame*self.scale))
 		
 		LOtrue=[0]
 		n_extinct=-0
 		tries=0
-		print("RA",self.root_age)
 		while len(LOtrue) < self.minSP or len(LOtrue) > self.maxSP or n_extinct < self.minEX_SP:
-
 			if tries>=100: 
 				return None
 				break
-			ts=repeat(self.root_age*self.scale,self.s_species)
+			ts=repeat(self.origin*self.scale,self.s_species)
 			te=repeat(0,self.s_species)
-			K_t=self.s_species*1.0 #THIS MAY NEED TO BE CHANGED
-			D_t=self.s_species*1.0
-			#m=repeat(max(0.0,self.b_logistic_params['l0']-(self.b_logistic_params['l0']-self.d_logistic_params['m0'])*self.s_species/self.b_logistic_params['A0']),self.s_species) #death rate for those born at time 0
-			m=repeat(self.d_logistic_params['m0'],self.s_species)
+			Kt=K_vec[0]
+			Dt=self.s_species*1.0
+			niche_frac=(1-Dt/Kt)
+			
+			#EXAMPLE FOR CLADE ADE WHERE EACH LINEAGE HAS CONSTANT EXTINCTION RISK OVER TIME
 			#m=repeat(self.si_params['m0']*1.0*self.s_species/K_t,self.s_species)
+			
 			eb_rates=[]
 			ed_rates=[]
 			thb_rates=[]
@@ -148,72 +130,49 @@ class Simulator(object):
 			deaths_cache=0
 
 
-			for t in range(int(self.root_age*self.scale),0): #this is to smooth
+			for t in range(int(self.time_frame*self.scale)): #this is to smooth
 				alive_indx=(te==0).nonzero()[0] #indices of living lineages
-				D_t=len(alive_indx)*1.0
+				Dt=len(alive_indx)*1.0
 				
-				###THIS SECTION HAS BASIC BREAKS###
-				'''
-				if D_t>self.maxSP or (t==(self.root_age+15)*self.scale and D_t<50):					 
-					tries+=1
-					break
+				#example with diff EQ
+				#dK_dt = self.__get_dKdT_tSI(D_t,K_t)
+				#K_t= max(self.s_species,K_t+dK_dt/self.scale)
 				
-				if (t==(self.root_age+5)*self.scale and D_t<10):
-					tries+=1
-					break
+				#example with fixed rates or trend
+				#smooth_t=int((t/self.scale)-self.root_age)
+				#l_t=l_vec[smooth_t]
+				#m_t=m_vec[smooth_t]
 				
-				if (t==(self.root_age+10)*self.scale and D_t<20):
-					tries+=1
-					break
-
-				
-				if (t==(self.root_age+15)*self.scale and D_t<400):
-					tries+=1	
-					break
-
-				
-				if (t==(self.root_age+20)*self.scale and D_t<2000):
-					tries+=1
-					break
-	
-				#very strict
-				#if (t==(self.root_age)+21*self.scale and thd_rates[20]!=self.SI_params['m0'])
-				#	tries+=1
-				#	break
-				'''
-				
-				###compute theoretical rates
-				dK_dt = self.__get_dKdT_tSI(D_t,K_t)
-				K_t= max(self.s_species,K_t+dK_dt/self.scale)
-				K_t= self.__get_K_t(t,'b')
-				l_t = max(0.0,self.si_params['l0']-(self.si_params['l0']-self.si_params['m0'])*D_t/K_t)
+				Kt= K_vec[t]
+				l_t = max(0.0,self.si_params['l0']-(self.si_params['l0']-self.si_params['m0'])*Dt/K_t)
 				m_t = max(0.0,self.si_params['m0']+(self.si_params['l0']-self.si_params['m0'])*D_t/K_t)
 
-				crap=int((t/self.scale)-self.root_age)
-				#l_t =self.l_vector[crap]
-				#m_t = self.d_logistic_params['m0'] * self.__get_K_t(t,'d')
-				#m_t=self.d_logistic_params['m0']
-				#m_t=self.m_vector[crap]
-				#m_t=self.si_params['m0']-(self.si_params['m0'] D_t/1000
-				#l_t=self.si_params['l0']*D_t/1000
-	
 				thb_rates.append(l_t)
 				thd_rates.append(m_t)				
 				
-				#rescale rates: if we are making this time continuous rates get divided by 1000				
+				#rescale rates: if we are making this time continuous rates get divided by 100				
 				l_t=l_t/self.scale
 				m_t=m_t/self.scale
-				#print("M",any(m[alive_indx]!=.2))
-				ran_vec=np.random.random(len(alive_indx))
-	
-				r_sp_indx = (ran_vec < l_t).nonzero()[0]
-				#r_ex_indx = np.intersect1d((ran_vec >= l_t).nonzero()[0], (ran_vec < l_t+m[alive_indx]/self.scale).nonzero()[0])
-				r_ex_indx = np.intersect1d((ran_vec >= l_t).nonzero()[0], (ran_vec < l_t+m_t).nonzero()[0])
-				kill_indx=alive_indx[r_ex_indx]
 				
-				births_cache+= len(r_sp_indx)
-				deaths_cache+= len(kill_indx)
+				
+				if self.stochastic==True:
+					ran_vec=np.random.random(len(alive_indx))
 
+	
+					r_sp_indx = (ran_vec < l_t).nonzero()[0]
+					r_ex_indx = np.intersect1d((ran_vec >= l_t).nonzero()[0], (ran_vec < l_t+m_t).nonzero()[0])
+					kill_indx=alive_indx[r_ex_indx]
+					birth_count= len(r_sp_indx)
+	
+				
+				else:
+					birth_count = round(l_t * len(alive_indx))
+					kill_count = round(m_t * len(alive_indx))
+					kill_indx = np.random.choice(alive_indx,kill_count)
+				#we'll create a cache that we'll dump at new discrete time bin
+				births_cache+= birth_count
+				deaths_cache+= len(kill_indx)
+	
 				te[kill_indx]=t #kill em all
 
 				
@@ -222,9 +181,6 @@ class Simulator(object):
 				ts=append(ts,repeat(t,len(r_sp_indx)))
 				te=append(te,repeat(0,len(r_sp_indx)))
 	
-				#NEED TO READD
-				m=append(m,repeat(m_t*self.scale,len(r_sp_indx)))
-				
 				
 				
 				if t % self.scale == 0:
@@ -239,8 +195,8 @@ class Simulator(object):
 					eb_rates.append(round((births_cache/max(branch_length/self.scale,.00001)),4))
 					ed_rates.append(round((deaths_cache/max(branch_length/self.scale,.00001)),4))
 					print(len(te[te==0]),len(alive_indx),D_t)
-					net_diversity.append(D_t)
-					carrying_capacity.append(K_t)
+					net_diversity.append(Dt)
+					carrying_capacity.append(Kt)
 					
 					births_cache=0
 					deaths_cache=0
