@@ -5,18 +5,35 @@ Created on Sun Feb 17 15:41:07 2019
 
 @author: bernie
 """
-
+import argparse, os,sys
+from numpy import *
+import numpy as np
+from scipy.special import gamma
+from scipy.special import beta as f_beta
+import csv
+from scipy.special import gdtr, gdtrix
+from scipy.special import betainc
+import scipy.stats
+import scipy.misc
+import random
 ###LITERATE LIBRARY###
 
-def prior_sym_beta(x,a): 
-	return scipy.stats.beta.logpdf(x, a,a)
+###MISC####
+def approx_log_fact(n):
+	# http://mathworld.wolfram.com/StirlingsApproximation.html
+	return np.log(np.sqrt((2*n+1./3)*np.pi)) + n*np.log(n) -n
+
+def get_log_factorial(n):
+	if n < 100: return np.log(scipy.misc.factorial(n))
+	else: return approx_log_fact(n)
+
 
 def random_choice(vector):
 	ind = np.random.choice(range(len(vector)))
 	return [vector[ind], ind]
 
 # VECTORIZED LIK FUNCTIONS
-def get_br(t0,t1):
+def get_br(ts,te,t0,t1):
 	s, e  = ts+0., te+0.
 	s[s<t0] = t0
 	e[e>t1] = t1
@@ -26,7 +43,7 @@ def get_br(t0,t1):
 def precompute_events(ts,te,t0,t1):
 	n_spec_events = len(np.intersect1d((ts >= t0).nonzero()[0], (ts < t1).nonzero()[0]))
 	n_exti_events = len(np.intersect1d((te > t0).nonzero()[0], (te <= t1).nonzero()[0]))
-	tot_br_length = get_br(t0,t1)  
+	tot_br_length = get_br(ts,te,t0,t1)  
 	return n_spec_events, n_exti_events, tot_br_length
 	
 def get_rate_index(times):
@@ -66,6 +83,20 @@ def BDI_partial_lik(L_acc_vec,M_acc_vec):
 	return sum(lik) # lik_BI + lik_D
 
 ####### PROPOSALS #######
+def update_sliding_win(i, m=0, M=1, d=0.05): 
+	ii = i+(np.random.random()-.5)*d
+	if ii>M: ii=M-(ii-M)
+	if m==0: ii = abs(ii)
+	return ii
+
+def update_poisson_proposal(kt):
+	ktp = np.random.poisson(kt)
+	if ktp ==0: return kt,0
+	backward_pr = logPoisson_pmf(kt,ktp)
+	forward_pr = logPoisson_pmf(ktp,kt)
+	hastings = backward_pr-forward_pr
+	return ktp,hastings
+
 def update_multiplier_proposal_vec(q,d=1.1,f=0.75):
 	S=np.shape(q)
 	ff=np.random.binomial(1,f,S)
@@ -77,35 +108,36 @@ def update_multiplier_proposal_vec(q,d=1.1,f=0.75):
 	U=sum(log(m))
 	return new_q,U
 
-def update_sliding_win_vec(i, m=0, M=1, d=0.05,f=.5):
-	S=np.shape(i)
-	ff= np.random.binomial(1,f,S)
-	ii = i+(np.random.random(S)-.5)*d	
-	ii[ii>M] = np.amax(M-np.abs(ii[ii>M]-M),m)
-	ii[ii<m] = np.amin(np.abs(ii[ii<m]-m)+m,M)
-	ii[ff=0]=i[ff=0]
-	return ii, np.zeros(S) #hastings ratio is 1, we're in log space
-
+def update_multiplier_proposal(q,d=1.1):
+	u = np.random.random()
+	l = 2*log(d)
+	m = exp(l*(u-.5))
+	new_q = q * m
+	U=log(m)
+	return new_q,U
 
 ####### PRIORS #######
-def Poisson_prior(k,rate):
-	return k*log(rate) - rate - sum(log(np.arange(1,k+1)))
 
-def prior_gamma(L,a=2,b=2):  
-	return sum(scipy.stats.gamma.logpdf(L, a, scale=1./b,loc=0))
+def logPoisson_pmf(x,l):
+	log_pmf = (x*np.log(l) -l) - get_log_factorial(x)
+	return log_pmf
 
-def prior_normal(L,sd): 
-	return scipy.stats.norm.logpdf(L,loc=0,scale=sd)
+def prior_gamma(x,a,s,l):
+	# mean = a*s
+	return scipy.stats.gamma.logpdf(x, a, scale=s,loc=l)
 
-def prior_exponential(L,rate): 
-	return sum(scipy.stats.expon.logpdf(L, scale=1./rate)
-			
-			
-def parse_ts_te(input_file,first_year,last_year,death_jitter):
+def prior_norm(x,loc=0,scale=1):
+	return scipy.stats.norm.logpdf(x, loc, scale)
+
+def prior_sym_beta(x,a): 
+	return scipy.stats.beta.logpdf(x, a,a)
+
+####SET UP STUFF####			
+def parse_ts_te(input_file,TBP,first_year,last_year,death_jitter):
 	tbl=np.genfromtxt(input_file, skip_header=1)
 	ts_years = tbl[:,2]
 	te_years = tbl[:,3]
-	if args.TBP==True:
+	if TBP==True:
 		if first_year!=-1:
 			te_years=te_years[ts_years<=first_year]
 			ts_years=ts_years[ts_years<=first_year]
@@ -119,14 +151,14 @@ def parse_ts_te(input_file,first_year,last_year,death_jitter):
 		if first_year!=-1:
 			te_years=te_years[ts_years>=first_year]
 			ts_years=ts_years[ts_years>=first_year]
-		if args.last_year!=-1:
+		if last_year!=-1:
 			te_years=te_years[ts_years<=last_year]
 			ts_years=ts_years[ts_years<=last_year]
 			te_years[te_years>last_year]=last_year
 		ts = ts_years
 		te = te_years
 	
-	te = te + args.death_jitter
+	te = te + death_jitter
 	present = max(te)
 	origin  = min(ts)
 	return ts, te, present, origin
@@ -137,7 +169,7 @@ def create_bins(origin, present,ts,te,rm_first_bin):
 	Dt = []
 	bins = np.arange(origin,present+1)
 	for i in range(len(bins)-1):
-		a,b,c = precompute_events(bins[i],bins[i+1],ts,te)
+		a,b,c = precompute_events(ts,te,bins[i],bins[i+1])
 		n_spec.append(a)
 		n_exti.append(b)
 		Dt.append(c)
@@ -147,10 +179,17 @@ def create_bins(origin, present,ts,te,rm_first_bin):
 	n_exti = np.array(n_exti)[:-1]
 	Dt = np.array(Dt)[:-1]
 	
+	if rm_first_bin:
+		# remove first bin
+		n_spec = n_spec[1:]
+		n_exti = n_exti[1:]
+		Dt = Dt[1:]
+		origin +=1 
+		
 	n_time_bins = len(Dt)
 	time_range = np.arange(n_time_bins).astype(float)
 
-	return n_spec, n_exti, Dt, n_time_bins, time_range
+	return origin,present,n_spec, n_exti, Dt, n_time_bins, time_range
 
 def set_seed(seed):
 	if seed==-1:
@@ -158,9 +197,10 @@ def set_seed(seed):
 	else: rseed=seed	
 	random.seed(rseed)
 	np.random.seed(rseed)
+	return rseed
 	
 def core_arguments():
-	argparse.ArgumentParser() #description='<input file>') 
+	p=argparse.ArgumentParser() #description='<input file>') 
 
 	p.add_argument('-v',       action='version', version='%(prog)s')
 	p.add_argument('-d',       type=str, help='data file', default="", metavar="") 
@@ -171,8 +211,6 @@ def core_arguments():
 	#p.add_argument('-present_year',    type=int, help="""set to: -1 for standard pyrate datasets (time BP), \
 	#0: time AD and present set to most recent TE, 1: time AD present user defined """, default= 0, metavar= 0)
 	p.add_argument('-TBP', help='Default is AD. Include for TBP.', default=False, action='store_true')
-	p.add_argument('-const_B', help="constant birth rates " , default= False, action='store_true')
-	p.add_argument('-const_D', help="constant death rates" , default= False, action='store_true')
 	p.add_argument('-first_year',    type=int, help='This is a convenience function if you would like to specify a different start to your dataset. Unspecified for TBP.', default= -1, metavar= -1)
 	p.add_argument('-last_year',    type=int, help='This is a convenience function if you would like to specify a different end to your dataset. Unspecified for TBP.', default= -1, metavar= -1)
 	p.add_argument('-death_jitter', type=float, help="""Determines the amount to jitter death times.\
