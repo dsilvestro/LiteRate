@@ -21,6 +21,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from collections import OrderedDict
 import multiprocessing as mp
 from sys import argv
+from literate_library import *
 print("Birth-Death Sampler 18\n")
 
 
@@ -34,14 +35,13 @@ class Simulator(object):
 	def __init__(self):
 		
 		###SIMULATION SETTINGS###
+		self.theoretical_only = True  #if True, the next block is irrelevant since those are stochastic guidelines
 		
 		self.n_reps = 100 # number of simulations
-		self.t_as_AD=True
-		self.present_year=2000
 		# CONSTRAINTS on DATA SIZE (simulations will run until size requirements are met)
 		self.s_species=5   # number of starting species
 		self.minSP=100     # min standing diversity
-		self.maxSP=10000    # max size standing diversity
+		self.maxSP=20000    # max size standing diversity
 		self.minEX_SP=100    # minimum number of extinct lineages allowed
 		
 		
@@ -49,16 +49,17 @@ class Simulator(object):
 		self.origin = 1968	# amount of time to simulate. specified in TBP
 		self.present=2000
 		self.time_frame=self.present-self.origin+1
+		self.t_as_TBP=False
 		
 
 		#LOGISTIC GROWTH PARAMETERS
 		self.logistic_params={
-		'l_max':.5,
-		'm_max':.2,
-		'L':self.maxSP, #max carrying cappacity
-		'div_0':5, #min carrying capacity
-		'k':.000000001, #growth rate
-		'x0':self.time_frame, #x value at midpoint
+		'l_max':.425,
+		'm_max':.165,
+		'L':23227.11, #max carrying cappacity
+		'div_0':188.15, #min carrying capacity
+		'k':5.1, #growth rate
+		'x0':9, #x value at midpoint
 		'nu':1.0 #skew where growth is occuring the most greater than 1 skewed towards beginning, less than 1 skewed towards end.
 		#Must be greater than 0
 		}
@@ -79,12 +80,13 @@ class Simulator(object):
 		###FIXED VECTOR PARAMETERS
 		self.m_vector=np.array([.2]*9 +[.6]*5+[.3]*15+[1.4]+[.2*.9])
 		self.m_vector=np.array([.2]*15 +[2] +[.2]*8+[.4]*7)
+		self.m_vector=np.array([.208]*31)
 		self.l_vector=np.array([.3,.3,.3]+ [.4]*5+ [.6]*7+ [.3]*6+ [.45,.45,.425,.425,.4]+ [.4]*5)
 
-	def __get_logistic(t):
+	def __get_logistic(self,t):
 		p=self.logistic_params
 		t=t/self.scale
-		return( p['div_0'] + p['L']/((1+exp(-p['k']*(t-p['x0'])))**(1/p['nu'])) )
+		return ( p['div_0'] + p['L']/((1+exp(-p['k']*(t-p['x0'])))**(1/p['nu'])) )
 
 
 	def __get_dKdT_tSI(self,D_t,K_t):
@@ -101,8 +103,10 @@ class Simulator(object):
 	def simulate(self,logistic_params=None):
 		if logistic_params!=None: self.b_logistic_params=b_params
 		#Could aternatively be set up to take fixed rates or different model equations here
-		K_vec= self.get_logistic(range(int(self.time_frame*self.scale))
-		
+		time=np.array(list(range(int(self.time_frame*self.scale))))
+		print(time)
+		K_vec= np.array(self.__get_logistic(time))
+		print(K_vec)
 		LOtrue=[0]
 		n_extinct=-0
 		tries=0
@@ -113,17 +117,18 @@ class Simulator(object):
 			ts=repeat(self.origin*self.scale,self.s_species)
 			te=repeat(0,self.s_species)
 			Kt=K_vec[0]
-			Dt=self.s_species*1.0
-			niche_frac=(1-Dt/Kt)
+			st_Dt=self.s_species*1.0
+			th_Dt=self.s_species*1.0
 			
 			#EXAMPLE FOR CLADE ADE WHERE EACH LINEAGE HAS CONSTANT EXTINCTION RISK OVER TIME
 			#m=repeat(self.si_params['m0']*1.0*self.s_species/K_t,self.s_species)
 			
-			eb_rates=[]
-			ed_rates=[]
 			thb_rates=[]
 			thd_rates=[]
-			net_diversity=[]
+			eb_rates=[]
+			ed_rates=[]
+			th_diversity=[]
+			st_diversity=[]
 			carrying_capacity=[]
 			
 			births_cache=0
@@ -132,7 +137,7 @@ class Simulator(object):
 
 			for t in range(int(self.time_frame*self.scale)): #this is to smooth
 				alive_indx=(te==0).nonzero()[0] #indices of living lineages
-				Dt=len(alive_indx)*1.0
+				st_Dt=len(alive_indx)*1.0
 				
 				#example with diff EQ
 				#dK_dt = self.__get_dKdT_tSI(D_t,K_t)
@@ -144,33 +149,33 @@ class Simulator(object):
 				#m_t=m_vec[smooth_t]
 				
 				Kt= K_vec[t]
-				l_t = max(0.0,self.si_params['l0']-(self.si_params['l0']-self.si_params['m0'])*Dt/K_t)
-				m_t = max(0.0,self.si_params['m0']+(self.si_params['l0']-self.si_params['m0'])*D_t/K_t)
+				st_lt = max(0.0,self.si_params['l0']-(self.si_params['l0']-self.si_params['m0'])*st_Dt/Kt)
+				st_mt = max(0.0,self.si_params['m0']+(self.si_params['l0']-self.si_params['m0'])*st_Dt/Kt)
+				th_lt = max(0.0,self.si_params['l0']-(self.si_params['l0']-self.si_params['m0'])*th_Dt/Kt)
+				th_mt = max(0.0,self.si_params['m0']+(self.si_params['l0']-self.si_params['m0'])*th_Dt/Kt)
 
-				thb_rates.append(l_t)
-				thd_rates.append(m_t)				
 				
 				#rescale rates: if we are making this time continuous rates get divided by 100				
-				l_t=l_t/self.scale
-				m_t=m_t/self.scale
+				st_lt=st_lt/self.scale
+				st_mt=st_mt/self.scale
+				th_lt=th_lt/self.scale
+				th_mt=th_mt/self.scale
+				
+				th_Dt=th_Dt+(th_Dt*th_lt)-(th_Dt*th_mt)
 				
 				
-				if self.stochastic==True:
-					ran_vec=np.random.random(len(alive_indx))
+				
+				###CALCULATING STOCHASTIC BIRTH/DEATH RATES
+				ran_vec=np.random.random(len(alive_indx))
 
-	
-					r_sp_indx = (ran_vec < l_t).nonzero()[0]
-					r_ex_indx = np.intersect1d((ran_vec >= l_t).nonzero()[0], (ran_vec < l_t+m_t).nonzero()[0])
-					kill_indx=alive_indx[r_ex_indx]
-					birth_count= len(r_sp_indx)
-	
+
+				r_sp_indx = (ran_vec < st_lt).nonzero()[0]
+				r_ex_indx = np.intersect1d((ran_vec >= st_lt).nonzero()[0], (ran_vec < st_lt+st_mt).nonzero()[0])
+				kill_indx=alive_indx[r_ex_indx]
+
 				
-				else:
-					birth_count = round(l_t * len(alive_indx))
-					kill_count = round(m_t * len(alive_indx))
-					kill_indx = np.random.choice(alive_indx,kill_count)
-				#we'll create a cache that we'll dump at new discrete time bin
-				births_cache+= birth_count
+				#we'll create a cache that we'll dump at new discrete time bin for emprical birth rates
+				births_cache+= len(r_sp_indx)
 				deaths_cache+= len(kill_indx)
 	
 				te[kill_indx]=t #kill em all
@@ -184,19 +189,20 @@ class Simulator(object):
 				
 				
 				if t % self.scale == 0:
-					print("TIME",t,"D",D_t,l_t,m_t)
-					print("K",K_t)
-
-					
-
+					print("t:",t,"thDt:",th_Dt,"stDt:",st_Dt,"thlt",th_lt*self.scale,"thmt",th_mt*self.scale,"stlt",st_lt*self.scale,"K",Kt)
 					branch_length=self.__calc_branchlength(ts,te,t-self.scale,t)
 					
 					
 					eb_rates.append(round((births_cache/max(branch_length/self.scale,.00001)),4))
 					ed_rates.append(round((deaths_cache/max(branch_length/self.scale,.00001)),4))
-					print(len(te[te==0]),len(alive_indx),D_t)
-					net_diversity.append(Dt)
+					
+					thb_rates.append(th_lt*self.scale)
+					thd_rates.append(th_mt*self.scale)
+					
+					th_diversity.append(th_Dt)
+					st_diversity.append(st_Dt)
 					carrying_capacity.append(Kt)
+					
 					
 					births_cache=0
 					deaths_cache=0
@@ -204,23 +210,29 @@ class Simulator(object):
 				
 				LOtrue=te
 				n_extinct = len(te[te<0])
-			
+			if self.theoretical_only==True:
+				return (np.array(thb_rates), np.array(thd_rates),
+						None, None,
+						np.array(th_diversity),None,
+						np.array(carrying_capacity),
+						None,None)
 			tries+=1	
 			print("tries:",tries)
 			
 		ts, te= floor(-array(ts)/self.scale), floor(-(te)/self.scale)
-		if self.t_as_AD: ts, te = self.present_year-ts, self.present_year-te
-		#return ts, te
+		#if self.t_as_TBP: ts, te = self.present_year-ts, self.present_year-te
 		
 		#average theoretical rates down to years
 		#thb_rates= thb_rates[:(-1*(len(thb_rates)%100))] #truncate to multiple of 100
 		#thd_rates= thd_rates[:(-1*(len(thd_rates)%100))]
-		thb_rates = np.round(np.mean(np.array(thb_rates).reshape(-1, int(100)), axis=1),4) #this averages every 100 times to get 
-		thd_rates = np.round(np.mean(np.array(thd_rates).reshape(-1, int(100)), axis=1),4)
-		#print("TRIES",tries)		
-		return (np.array(eb_rates), np.array(ed_rates),
-				 np.array(thb_rates), np.array(thd_rates),
-				 np.array(net_diversity),np.array(carrying_capacity),ts,te)
+		#thb_rates = np.round(np.mean(np.array(thb_rates).reshape(-1, int(100)), axis=1),4) #this averages every 100 times to get 
+		#thd_rates = np.round(np.mean(np.array(thd_rates).reshape(-1, int(100)), axis=1),4)
+		print("TRIES",tries)		
+		return (	np.array(thb_rates), np.array(thd_rates),
+				np.array(eb_rates), np.array(ed_rates),
+				np.array(th_diversity),np.array(st_diversity),
+				np.array(carrying_capacity),
+				ts,te)
 
 test=Simulator()
 attempt=test.simulate()
