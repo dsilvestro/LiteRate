@@ -67,7 +67,7 @@ def likelihood_function(args):
 	elif M_BIRTH==1:
 		niche = get_const_K(TIME_RANGE,L,div_0)
 		niche_frac = DT/niche
-		birth_rates = get_rates(l_max,niche_frac)
+		birth_rates = get_rates(l_max,(niche_frac**nuB))
 	elif M_BIRTH==2:
 		niche = get_logistic(TIME_RANGE,L,k,x0,div_0,1)
 		niche_frac = DT/niche
@@ -79,7 +79,7 @@ def likelihood_function(args):
 	elif M_DEATH ==1:
 		niche = get_const_K(TIME_RANGE,L,div_0)
 		niche_frac = DT/niche
-		death_rates =  get_rates(m_max,(niche_frac))
+		death_rates =  get_rates(m_max,(niche_frac**nuD))
 	elif M_DEATH==2:
 		niche = get_logistic(TIME_RANGE,L,k,x0,div_0,1)
 		niche_frac = DT/niche
@@ -149,7 +149,7 @@ def __main__(parsed_args):
 	elif M_BIRTH==2 or M_DEATH==2:
 		update_multiplier = np.array([1.,  1,	0,        1,   1,      1 , 1, 1])   
 	else:
-		update_multiplier = np.array([1.,  0,	0,        0,   1,    1 , 0, 0])   
+		update_multiplier = np.array([1.,  0,	0,        0,   1,    1 , 1, 1])   
 	
 	update_multiplier = update_multiplier/sum(update_multiplier)
 	
