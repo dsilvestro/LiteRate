@@ -60,18 +60,18 @@ def get_rates(rate_max,niche_frac):
 	return(rate)
 
 def likelihood_function(args):
-	[l_max,  k, x0, 	div_0,   L,  m_max, nu] = args
+	[l_max,  k, x0, 	div_0,   L,  m_max, nuB, nuD] = args
 
 	if M_BIRTH==0:
 		birth_rates = np.ones(N_TIME_BINS)*l_max
 	elif M_BIRTH==1:
 		niche = get_const_K(TIME_RANGE,L,div_0)
 		niche_frac = DT/niche
-		birth_rates = get_rates(l_max,niche_frac)
+		birth_rates = get_rates(l_max,(niche_frac**nuB))
 	elif M_BIRTH==2:
-		niche = get_logistic(TIME_RANGE,L,k,x0,div_0,nu)
+		niche = get_logistic(TIME_RANGE,L,k,x0,div_0,1)
 		niche_frac = DT/niche
-		birth_rates = get_rates(l_max,niche_frac)
+		birth_rates = get_rates(l_max,(niche_frac**nuB))
 	birth_lik = np.sum(log(birth_rates)*N_SPEC - birth_rates*DT)
 
 	if M_DEATH ==0:	
@@ -79,11 +79,11 @@ def likelihood_function(args):
 	elif M_DEATH ==1:
 		niche = get_const_K(TIME_RANGE,L,div_0)
 		niche_frac = DT/niche
-		death_rates =  get_rates(m_max,(niche_frac))
+		death_rates =  get_rates(m_max,(niche_frac**nuD))
 	elif M_DEATH==2:
-		niche = get_logistic(TIME_RANGE,L,k,x0,div_0,nu)
+		niche = get_logistic(TIME_RANGE,L,k,x0,div_0,1)
 		niche_frac = DT/niche
-		death_rates = get_rates(m_max,(niche_frac))
+		death_rates = get_rates(m_max,(niche_frac**nuD))
 	death_lik = np.sum(log(death_rates)*N_EXTI - death_rates*DT)
 	lik = np.array([birth_lik, death_lik])
 
@@ -102,7 +102,7 @@ def calc_prior(args):
 	
 def __main__(parsed_args):	
 	
-	out=""
+	out="pow2"
 	if M_BIRTH==0: out += "_LL"
 	elif M_BIRTH==1: out += "_LDD"
 	elif M_BIRTH==2: out += "_LDDN"
@@ -114,7 +114,7 @@ def __main__(parsed_args):
 	logfile = open(outfile , "w") 
 	wlog=csv.writer(logfile, delimiter='\t')
 	head =["it","posterior","likelihood","likelihood_birth","likelihood_death","prior","l_max","steepness_k","midpoint_x0",\
-	"initCarryingCap","maxCarryingCap","m_max","nu"]
+	"initCarryingCap","maxCarryingCap","m_max","nuB","nuD"]
 	for i in range(len(DT)): head.append("l_%s" % i)
 	for i in range(len(DT)): head.append("m_%s" % i)
 	for i in range(len(DT)): head.append("niche_%s" % i)
@@ -132,10 +132,11 @@ def __main__(parsed_args):
 	div_0 = 10 # starting carrying capacity
 	l_max = 0.5 #max speciation rate
 	m_max = 0.20  #max extinction rate
-	nu = 1.
+	nuB = 1.
+	nuD = 1.
 	
 	
-	argsA=np.array([l_max,  k, x0, 	div_0,   L,  m_max, nu])
+	argsA=np.array([l_max,  k, x0, 	div_0,   L,  m_max, nuB, nuD])
 	
 	
 	#figure out which params to update based on model Note that nu is an extended logistic param which we are not currently using
@@ -144,11 +145,11 @@ def __main__(parsed_args):
 	#constant birth and death
 	if M_BIRTH==0 and M_DEATH==0:
 		#argsA=             np.array([l_max,  k,    x0, 	div_0,   L,	 m_max, nu])
-		update_multiplier = np.array([1.,  0,	0,        0,   0,         1 , 0])
+		update_multiplier = np.array([1.,  0,	0,        0,   0,         1 , 0, 0])
 	elif M_BIRTH==2 or M_DEATH==2:
-		update_multiplier = np.array([1.,  1,	0,        1,   1,      1 , 0])   
+		update_multiplier = np.array([1.,  1,	0,        1,   1,      1 , 1, 1])   
 	else:
-		update_multiplier = np.array([1.,  0,	0,        0,   1,    1 , 0])   
+		update_multiplier = np.array([1.,  0,	0,        0,   1,    1 , 1, 1])   
 	
 	update_multiplier = update_multiplier/sum(update_multiplier)
 	
