@@ -34,7 +34,9 @@ TS,TE,PRESENT,ORIGIN=parse_ts_te(args.d,args.TBP,args.first_year,args.last_year,
 
 ORIGIN, PRESENT, N_SPEC, N_EXTI, DT, N_TIME_BINS, TIME_RANGE=create_bins(ORIGIN, PRESENT,TS,TE,args.rm_first_bin)
 
-
+if args.print_emp:
+	print_empirical_rates(N_SPEC,N_EXTI,DT)
+	
 
 #######PUT ADDITIONAL GLOBALS HERE#########
 M_BIRTH = args.m_birth
@@ -54,8 +56,13 @@ def get_logistic(x,L,k,x0,div_0,nu):
 def get_const_K(x,L,div_0):
 	return( np.ones(len(x))*(L+div_0) )
 
-def get_rates(rate_max,niche_frac):
+def get_brates(rate_max,niche_frac):
 	rate =  rate_max - (rate_max)*niche_frac
+	rate[rate<=0] = SMALL_NUMBER #no negative birth rates
+	return(rate)
+
+def get_drates(rate_min,niche_frac):
+	rate =  rate_min + (rate_min)*niche_frac
 	rate[rate<=0] = SMALL_NUMBER #no negative birth rates
 	return(rate)
 
@@ -67,11 +74,11 @@ def likelihood_function(args):
 	elif M_BIRTH==1:
 		niche = get_const_K(TIME_RANGE,L,div_0)
 		niche_frac = DT/niche
-		birth_rates = get_rates(l_max,(niche_frac**nuB))
+		birth_rates = get_brates(l_max,(niche_frac**nuB))
 	elif M_BIRTH==2:
 		niche = get_logistic(TIME_RANGE,L,k,x0,div_0,1)
 		niche_frac = DT/niche
-		birth_rates = get_rates(l_max,(niche_frac**nuB))
+		birth_rates = get_brates(l_max,(niche_frac**nuB))
 	birth_lik = np.sum(log(birth_rates)*N_SPEC - birth_rates*DT)
 
 	if M_DEATH ==0:	
@@ -79,11 +86,11 @@ def likelihood_function(args):
 	elif M_DEATH ==1:
 		niche = get_const_K(TIME_RANGE,L,div_0)
 		niche_frac = DT/niche
-		death_rates =  get_rates(m_max,(niche_frac**nuD))
+		death_rates =  get_drates(m_max,(niche_frac**nuD))
 	elif M_DEATH==2:
 		niche = get_logistic(TIME_RANGE,L,k,x0,div_0,1)
 		niche_frac = DT/niche
-		death_rates = get_rates(m_max,(niche_frac**nuD))
+		death_rates = get_drates(m_max,(niche_frac**nuD))
 	death_lik = np.sum(log(death_rates)*N_EXTI - death_rates*DT)
 	lik = np.array([birth_lik, death_lik])
 
@@ -101,6 +108,7 @@ def calc_prior(args):
 	return p
 	
 def __main__(parsed_args):	
+	
 	
 	out="pow2"
 	if M_BIRTH==0: out += "_LL"
