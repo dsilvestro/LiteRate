@@ -191,6 +191,15 @@ def create_bins(origin, present,ts,te,rm_first_bin):
 
 	return origin,present,n_spec, n_exti, Dt, n_time_bins, time_range
 
+#this relies on globals so if you are using different names, it'll fail
+def print_empirical_rates(n_spec,n_exti,Dt):
+	print("EMPIRICAL BIRTH RATES:")
+	print(n_spec/Dt)
+	print("EMPIRICAL DEATH RATES:")
+	print(n_exti/Dt)	
+	sys.exit()
+
+
 def set_seed(seed):
 	if seed==-1:
 		rseed=np.random.randint(0,9999)
@@ -216,5 +225,6 @@ def core_arguments():
 	p.add_argument('-death_jitter', type=float, help="""Determines the amount to jitter death times.\
 	               If set to 0, lineages that lived and died in same time bin will be excluded from branch length.""", default= .5, metavar= .5)
 	p.add_argument('-rm_first_bin',   type=float, help='if set to 1 it removes the first time bin (if max time is not the origin)', default= 0, metavar= 0)
+	p.add_argument('-print_emp',  help='Prints empirical rates', default=False, action='store_true')
 	return p
 #ADD ANY ARGUMENTS YOU NEED AFTER
