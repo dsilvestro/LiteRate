@@ -104,8 +104,8 @@ def calc_prior(args):
 	p += prior_gamma(args[5],a=1,s=10,l=0) #m_max
 	p += prior_gamma(args[3],a=1,s=PRIOR_K0_L,l=0) #div_0
 	p += prior_gamma(args[4],a=1,s=PRIOR_K0_L,l=0) #L
-	#p += prior_norm(args[6]) #L
-	#p += prior_norm(args[7]) #L
+	p += prior_norm(args[6]) #L
+	p += prior_norm(args[7]) #L
 
 	if ORIGIN + args[2]>= PRESENT: p = -np.inf #if midpoint greater than present: fail
 	return p
