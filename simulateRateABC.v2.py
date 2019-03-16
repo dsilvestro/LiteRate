@@ -56,10 +56,10 @@ class Simulator(object):
 		self.logistic_params={
 		'l_max':.425,
 		'm_max':.165,
-		'L':23227.11, #max carrying cappacity
-		'div_0':188.15, #min carrying capacity
-		'k':5.1, #growth rate
-		'x0':9, #x value at midpoint
+		'L':1000, #max carrying cappacity
+		'div_0':100, #min carrying capacity
+		'k':2, #growth rate
+		'x0':20, #x value at midpoint
 		'nu':1.0 #skew where growth is occuring the most greater than 1 skewed towards beginning, less than 1 skewed towards end.
 		#Must be greater than 0
 		}
@@ -72,9 +72,9 @@ class Simulator(object):
 				'threshold':.2,
 				}
 		#AGE-DEPENDENT EXTINCTION PARAMETERS
-		self.mean_lifespan=2.7
-		self.w_shape=0.5
-		self.w_scale = self.mean_lifespan/ gamma_func(1+1/self.w_shape)
+		#self.mean_lifespan=2.7
+		#self.w_shape=0.5
+		#self.w_scale = self.mean_lifespan/ gamma_func(1+1/self.w_shape)
 
 
 		###FIXED VECTOR PARAMETERS
@@ -105,7 +105,11 @@ class Simulator(object):
 		#Could aternatively be set up to take fixed rates or different model equations here
 		time=np.array(list(range(int(self.time_frame*self.scale))))
 		print(time)
-		K_vec= np.array(self.__get_logistic(time))
+		
+		###FIXED NICHE
+		K_vec = np.repeat(self.logistic_params['div_0']+self.logistic_params['L'],len(time))
+		###LOGISTIC NICHE
+		#K_vec= np.array(self.__get_logistic(time))
 		print(K_vec)
 		LOtrue=[0]
 		n_extinct=-0
@@ -151,8 +155,8 @@ class Simulator(object):
 				Kt= K_vec[t]
 				st_lt = max(0.0,self.si_params['l0']-(self.si_params['l0']-self.si_params['m0'])*st_Dt/Kt)
 				st_mt = max(0.0,self.si_params['m0']+(self.si_params['l0']-self.si_params['m0'])*st_Dt/Kt)
-				th_lt = max(0.0,self.si_params['l0']-(self.si_params['l0']-self.si_params['m0'])*th_Dt/Kt)
-				th_mt = max(0.0,self.si_params['m0']+(self.si_params['l0']-self.si_params['m0'])*th_Dt/Kt)
+				th_lt = max(0.0,self.si_params['l0']-(self.si_params['l0'])*th_Dt/Kt)
+				th_mt = max(0.0,self.si_params['m0']+(self.si_params['m0'])*th_Dt/Kt)
 
 				
 				#rescale rates: if we are making this time continuous rates get divided by 100				
@@ -221,12 +225,7 @@ class Simulator(object):
 			
 		ts, te= floor(-array(ts)/self.scale), floor(-(te)/self.scale)
 		#if self.t_as_TBP: ts, te = self.present_year-ts, self.present_year-te
-		
-		#average theoretical rates down to years
-		#thb_rates= thb_rates[:(-1*(len(thb_rates)%100))] #truncate to multiple of 100
-		#thd_rates= thd_rates[:(-1*(len(thd_rates)%100))]
-		#thb_rates = np.round(np.mean(np.array(thb_rates).reshape(-1, int(100)), axis=1),4) #this averages every 100 times to get 
-		#thd_rates = np.round(np.mean(np.array(thd_rates).reshape(-1, int(100)), axis=1),4)
+
 		print("TRIES",tries)		
 		return (	np.array(thb_rates), np.array(thd_rates),
 				np.array(eb_rates), np.array(ed_rates),
@@ -236,8 +235,9 @@ class Simulator(object):
 
 test=Simulator()
 attempt=test.simulate()
-plt.plot(attempt[2],linewidth=2,linestyle='dashed',color='blue')
-plt.plot(attempt[3],linewidth=2,linestyle='dashed',color='red')
+plt.plot(attempt[0],linewidth=2,linestyle='dashed',color='blue')
+plt.plot(attempt[1],linewidth=2,linestyle='dashed',color='red')
+#plt.plot(attempt[4],linewidth=2,linestyle='dashed',color='red')
 
 '''
 
