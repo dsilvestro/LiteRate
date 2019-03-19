@@ -100,7 +100,7 @@ def calc_prior(args):
 	#argsA=             np.array([l_max,  k,    x0, 	div_0,   L,	mu_correlation,  m_max, nu])
 	p = prior_gamma(args[0],a=1,s=10,l=0) #l_max
 	p += prior_gamma(args[1],a=1,s=10,l=0) #k
-	p += prior_gamma(args[6],a=1,s=10,l=0) #m_max
+	p += prior_gamma(args[5],a=1,s=10,l=0) #m_max
 	p += prior_gamma(args[3],a=1,s=PRIOR_K0_L,l=0) #div_0
 	p += prior_gamma(args[4],a=1,s=PRIOR_K0_L,l=0) #L
 	if ORIGIN + args[2]>= PRESENT: p = -np.inf #if midpoint greater than present: fail
