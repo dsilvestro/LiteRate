@@ -16,6 +16,7 @@ from scipy.special import betainc
 import scipy.stats
 import scipy.misc
 import random
+from scipy import stats
 ###LITERATE LIBRARY###
 
 ###MISC####
@@ -196,10 +197,24 @@ def print_empirical_rates(n_spec,n_exti,Dt):
 	print("EMPIRICAL BIRTH RATES:")
 	print(n_spec/Dt)
 	print("EMPIRICAL DEATH RATES:")
-	print(n_exti/Dt)	
+	print(n_exti/Dt)
+	return(n_spec/Dt,n_exti/Dt)	
 	sys.exit()
 
-
+def calculate_r_squared(emp_birth,emp_death,est_birth,est_death):
+	joint_emp=np.concatenate([emp_birth,emp_death])
+	joint_est=np.concatenate([est_birth,est_death])
+	res=np.linalg.lstsq(np.vstack(joint_emp),joint_est,rcond=None)
+	coeff=res[0][0]
+	ssres=res[1][0]
+	r2=1-ssres/np.sum(joint_est**2)
+	fitted=coeff*joint_emp
+	resid=joint_est-fitted
+	var_fitted=np.var(fitted,ddof=1)
+	gelman_r2=var_fitted/(var_fitted+np.var(resid,ddof=1))
+	return coeff,r2,gelman_r2
+	
+	
 def set_seed(seed):
 	if seed==-1:
 		rseed=np.random.randint(0,9999)

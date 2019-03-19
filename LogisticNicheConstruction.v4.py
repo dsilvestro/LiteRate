@@ -34,9 +34,7 @@ TS,TE,PRESENT,ORIGIN=parse_ts_te(args.d,args.TBP,args.first_year,args.last_year,
 
 ORIGIN, PRESENT, N_SPEC, N_EXTI, DT, N_TIME_BINS, TIME_RANGE=create_bins(ORIGIN, PRESENT,TS,TE,args.rm_first_bin)
 
-if args.print_emp:
-	print_empirical_rates(N_SPEC,N_EXTI,DT)
-	
+B_EMP,D_EMP=print_empirical_rates(N_SPEC,N_EXTI,DT)
 
 #######PUT ADDITIONAL GLOBALS HERE#########
 M_BIRTH = args.m_birth
@@ -71,6 +69,8 @@ def likelihood_function(args):
 
 	if M_BIRTH==0:
 		birth_rates = np.ones(N_TIME_BINS)*l_max
+		niche = np.ones(N_TIME_BINS)
+		niche_frac = np.ones(N_TIME_BINS)
 	elif M_BIRTH==1:
 		niche = get_const_K(TIME_RANGE,L,div_0)
 		niche_frac = DT/niche
@@ -83,6 +83,8 @@ def likelihood_function(args):
 
 	if M_DEATH ==0:	
 		death_rates = np.ones(N_TIME_BINS)*m_max
+		niche = np.ones(N_TIME_BINS)
+		niche_frac = np.ones(N_TIME_BINS)
 	elif M_DEATH ==1:
 		niche = get_const_K(TIME_RANGE,L,div_0)
 		niche_frac = DT/niche
@@ -130,7 +132,7 @@ def __main__(parsed_args):
 	for i in range(len(DT)): head.append("m_%s" % i)
 	for i in range(len(DT)): head.append("niche_%s" % i)
 	for i in range(len(DT)): head.append("nicheFrac_%s" % i)
-	
+	head+=["corr_coeff","rsquared","gelman_r2"]
 	wlog.writerow(head)
 	
 	
@@ -209,7 +211,11 @@ def __main__(parsed_args):
 			argsO[2] += ORIGIN # right point in time
 			argsO[4] += argsO[3] #true max is div_0 + L
 			print(iteration, likA, argsO) #, args
-			l= [iteration,likA+priorA, likA,likBirthA,likDeathA, priorA] + list(argsO) + list(birth_rates) + list(death_rates) + list(niche) + list(nicheFrac)
+			
+			#compute adequacy stats
+			adequacy=calculate_r_squared(B_EMP,D_EMP,birth_rates,death_rates)
+			print(adequacy)
+			l= [iteration,likA+priorA, likA,likBirthA,likDeathA, priorA] + list(argsO) + list(birth_rates) + list(death_rates) + list(niche) + list(nicheFrac) + list(adequacy)
 			wlog.writerow(l)
 			logfile.flush()
 			os.fsync(logfile)
