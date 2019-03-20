@@ -117,6 +117,7 @@ def update_multiplier_proposal(q,d=1.1):
 	U=log(m)
 	return new_q,U
 
+
 ####### PRIORS #######
 
 def logPoisson_pmf(x,l):

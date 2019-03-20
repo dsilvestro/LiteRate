@@ -11,6 +11,8 @@ import csv
 from scipy.special import gdtr, gdtrix
 from scipy.special import betainc
 import scipy.stats
+from literate_library import *
+
 np.set_printoptions(suppress=True)
 np.set_printoptions(precision=3)  
 print("\n\n             LiteRate - 20190205\n")
@@ -303,7 +305,9 @@ def runMCMC(arg):
 		
 		if iteration % s_freq ==0:
 			# MCMC log
-			log_state = map(str,[iteration,likA+priorA,likA,priorA,mean(L_acc),mean(M_acc),len(L_acc),len(M_acc),start_time,end_time] + Gamma_rate + [Poi_lambda_rjHP])
+			#compute adequacy stats
+			adequacy=calculate_r_squared(B_EMP,D_EMP,L_acc[indLA],M_acc[indMA])
+			log_state = map(str,[iteration,likA+priorA,likA,priorA,mean(L_acc),mean(M_acc),len(L_acc),len(M_acc),start_time,end_time] + Gamma_rate + [Poi_lambda_rjHP] + list(adequacy) )
 			mcmc_logfile.write('\t'.join(log_state)+'\n')
 			mcmc_logfile.flush()
 			# log marginal rates/times
@@ -321,6 +325,8 @@ def runMCMC(arg):
 			print("\tex.times:", timesMA)
 			print("\tsp.rates:", L_acc)
 			print("\tex.rates:", M_acc)
+			print("\tR^2:",adequacy[1])
+
 		
 		iteration +=1 
 
@@ -419,7 +425,9 @@ except OSError as e:
 out_log = "%s/%s%s_mcmc.log" % (out_dir, file_name,out_name)
 mcmc_logfile = open(out_log , "w") 
 mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg",\
-"K_l","K_m","root_age","death_age","gamma_rate_hp_BI","gamma_rate_hp_D","poisson_rate_hp"])+'\n')
+"K_l","K_m","root_age","death_age","gamma_rate_hp_BI","gamma_rate_hp_D","poisson_rate_hp",\
+"corr_coeff","rsquared","gelman_r2"
+])+'\n')
 out_log = "%s/%s%s_sp_rates.log" % (out_dir, file_name, out_name )
 sp_logfile = open(out_log , "w") 
 out_log = "%s/%s%s_ex_rates.log" % (out_dir, file_name, out_name )
@@ -459,6 +467,7 @@ br_length_bin = np.array(br_length_bin)
 n_bins = len(sp_events_bin)
 Tk = np.ones(n_bins) # time spent in state
 
+B_EMP,D_EMP=print_empirical_rates(sp_events_bin,ex_events_bin,br_length_bin)
 
 ####### init parameters #######
 L_acc= np.random.gamma(2,2,1)
