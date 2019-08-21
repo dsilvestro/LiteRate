@@ -62,16 +62,26 @@ def logLikBeta(X,par):
 	a, b = par
 	return scipy.stats.beta.logpdf(X,a,b)
 
+
 def get_log_pmf_beta_discrete(num_bins, a, b):
 	bins = np.linspace(0, 1, num_bins + 1)
 	cdf_b = scipy.stats.beta.cdf(bins, a, b, loc=0, scale=1)
 	return np.log(np.diff(cdf_b))
 
-def calc_lik_discrete_beta(data, par, n_bins):
+def calc_lik_BetaBin(data, par, n_bins, indx = -1):
 	alpha, beta = par
-	lik_vec = get_log_pmf_beta_discrete(n_bins,alpha,beta)
-	lik = (lik_vec-  np.log(np.sum(np.exp(lik_vec))))* data
-	return lik
+	if indx == -1:
+		lik_vec = get_log_pmf_beta_discrete(n_bins, alpha, beta)
+		lik_list = (lik_vec-  np.log(np.sum(np.exp(lik_vec))))* data
+	else:
+		lik_list = np.zeros(len(alpha))
+		i=0
+		for a,b in zip(alpha,beta):
+			lik_vec = get_log_pmf_beta_discrete(n_bins, a,b)
+			lik_list[i] = (lik_vec[indx]-  np.log(np.sum(np.exp(lik_vec))))* data
+			i+=1
+	return lik_list
+
 
 def G0_norm_mean(n=1):
 	#return np.random.gamma(shape=alpha,scale=1./beta,size=n)
@@ -135,7 +145,7 @@ def DDP_gibbs_sampler(arg):
 				par_k1[j] = np.concatenate((par_k1[j],f_g()), axis=0)
 
 		# construct prob vector FAST!
-		lik_vec=np.array([logLik(d_i,par_k1,len(d)) for d_i in d])
+		lik_vec=np.array([logLik(d[i],par_k1,len(d),i) for i in range(len(d))])
 		lik_vec = np.sum(lik_vec, axis=0)
 		rel_lik = calc_rel_prob(lik_vec)
 		if len(par_k1[0])>len(eta): # par_k1 add one element only when i is not singleton
@@ -176,6 +186,8 @@ def read_trait_data(data_path):
 	data_lol=[]
 	for i, row in dat.iterrows():
 		 row=row.dropna()
+		 if row[0]==0: row= row[1:]
+		 if len(row)<2: continue
 		 row=np.array(row)
 		 data_lol.append(row)
 	 return data_lol
@@ -212,6 +224,12 @@ if run_beta:
 	list_proposals = [ update_multiplier_proposal, update_multiplier_proposal]
 	logLik = logLikBeta
 
+if empirical_data:
+	data = read_trait_data("data_path")
+	list_of_G_functions = [G0_beta_shape,G0_beta_shape]
+	parA = [np.random.uniform(0.8,1.1,1),np.random.uniform(0.8,1.1,1)] # vector of unique parameters (of len = K)
+	list_proposals = [ update_multiplier_proposal, update_multiplier_proposal]
+	logLik = calc_lik_BetaBin
 
 
 n_data= len(data)
@@ -230,8 +248,8 @@ alpha_par_Dir = 1
 out_log = "mcmc_DPP.log" 
 logfile = open(out_log , "w") 
 head="it\tlikelihood\tK\tDir_alpha"
-for i in range(len(data)): head+= "\tm_%s" % (i+1)
-for i in range(len(data)): head+= "\ts_%s" % (i+1)
+for i in range(len(data)): head+= "\ta_%s" % (i+1)
+for i in range(len(data)): head+= "\tb_%s" % (i+1)
 head=head.split("\t")
 wlog=csv.writer(logfile, delimiter='\t')
 wlog.writerow(head)
