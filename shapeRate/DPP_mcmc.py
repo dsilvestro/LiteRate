@@ -9,6 +9,7 @@ import random as rand
 from scipy.special import gdtr, gdtrix
 from scipy.special import betainc
 import scipy.stats
+import pandas as pd
 #np.set_printoptions(suppress=True)
 #np.set_printoptions(precision=3)  
 from time import time
@@ -66,6 +67,11 @@ def get_log_pmf_beta_discrete(num_bins, a, b):
 	cdf_b = scipy.stats.beta.cdf(bins, a, b, loc=0, scale=1)
 	return np.log(np.diff(cdf_b))
 
+def calc_lik_discrete_beta(data, par, n_bins):
+	alpha, beta = par
+	lik_vec = get_log_pmf_beta_discrete(n_bins,alpha,beta)
+	lik = (lik_vec-  np.log(np.sum(np.exp(lik_vec))))* data
+	return lik
 
 def G0_norm_mean(n=1):
 	#return np.random.gamma(shape=alpha,scale=1./beta,size=n)
@@ -129,7 +135,7 @@ def DDP_gibbs_sampler(arg):
 				par_k1[j] = np.concatenate((par_k1[j],f_g()), axis=0)
 
 		# construct prob vector FAST!
-		lik_vec=np.array([logLik(d_i,par_k1) for d_i in d])
+		lik_vec=np.array([logLik(d_i,par_k1,len(d)) for d_i in d])
 		lik_vec = np.sum(lik_vec, axis=0)
 		rel_lik = calc_rel_prob(lik_vec)
 		if len(par_k1[0])>len(eta): # par_k1 add one element only when i is not singleton
@@ -165,6 +171,14 @@ def DDP_gibbs_sampler(arg):
 	parA = par
 	return likA,parA, ind,new_alpha_par_Dir
 
+def read_trait_data(data_path):
+	dat=pd.read_csv(data_path,sep='\t')
+	data_lol=[]
+	for i, row in dat.iterrows():
+		 row=row.dropna()
+		 row=np.array(row)
+		 data_lol.append(row)
+	 return data_lol
 
 run_normal = 1
 run_beta   = 0
@@ -234,7 +248,7 @@ for IT in range(10000):
 		par = [0,0]
 		par[0], hasting1 = list_proposals[0](parA[0])
 		par[1], hasting2 = list_proposals[1](parA[1])
-		lik = np.sum([logLik(data[i],[par[0][ind[i]],par[1][ind[i]]]) for i in range(n_data)])
+		lik = np.sum([logLik(data[i],[par[0][ind[i]],par[1][ind[i]]],len(data[i])) for i in range(n_data)])
 		
 		if lik-likA + hasting1+hasting2 >= log(np.random.uniform(0,1)):
 			likA = lik
