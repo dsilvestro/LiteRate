@@ -2,6 +2,7 @@
 # Created by Daniele Silvestro on 20/08/2019
 import argparse, os,sys, platform, time, csv
 from numpy import *
+from copy import deepcopy
 import numpy as np
 from scipy.special import gamma
 from scipy.special import beta as f_beta
@@ -68,8 +69,26 @@ def get_log_pmf_beta_discrete(num_bins, a, b):
 	cdf_b = scipy.stats.beta.cdf(bins, a, b, loc=0, scale=1)
 	return np.log(np.diff(cdf_b))
 
+
 def calc_lik_BetaBin(data, par, n_bins, indx = -1):
 	alpha, beta = par
+	if indx == -1:
+		lik_vec = get_log_pmf_beta_discrete(n_bins, alpha, beta)
+		lik_list = lik_vec *(data/np.sum(data))
+	else:
+		lik_list = np.zeros(len(alpha))
+		i=0
+		for a,b in zip(alpha,beta):
+			lik_vec = get_log_pmf_beta_discrete(n_bins, a,b)
+			lik_list[i] = lik_vec[indx] *(data/np.sum(data))
+			i+=1
+	return lik_list
+
+def calc_lik_BetaBinomial(data, par, n_bins, indx = -1):
+	alpha, beta = par
+	
+	lik = log(scipy.special.beta(k+alpha, n_bins-k+beta)) - log(scipy.special.beta(alpha, beta))	
+	
 	if indx == -1:
 		lik_vec = get_log_pmf_beta_discrete(n_bins, alpha, beta)
 		lik_list = (lik_vec-  np.log(np.sum(np.exp(lik_vec))))* data
@@ -81,6 +100,36 @@ def calc_lik_BetaBin(data, par, n_bins, indx = -1):
 			lik_list[i] = (lik_vec[indx]-  np.log(np.sum(np.exp(lik_vec))))* data
 			i+=1
 	return lik_list
+
+
+# POISSON-BETA PROCESS
+def get_pmf_beta_discrete(num_bins, a, b):
+	bins = np.linspace(0, 1, num_bins + 1)
+	cdf_b = scipy.stats.beta.cdf(bins, a, b, loc=0, scale=1)
+	return np.diff(cdf_b)
+
+
+
+def calc_lik_BetaPoi(data, par, vec = 0):
+	alpha, beta = par
+	lam_0 = np.mean(data)
+	n_bins = len(data)
+	if vec == 0:
+		# for single values of alpha, beta
+		b_multi = get_pmf_beta_discrete(n_bins, alpha, beta)
+		lam_vec = lam_0 * b_multi * n_bins
+		lik_list = np.sum(scipy.stats.poisson.logpmf(data,lam_vec))
+	else:
+		lik_list = np.zeros(len(alpha))
+		i=0
+		for a,b in zip(alpha,beta):
+			b_multi = get_pmf_beta_discrete(n_bins, a, b)
+			lam_vec = lam_0 * b_multi * n_bins
+			lik_list[i] = np.sum(scipy.stats.poisson.logpmf(data,lam_vec))
+			i+=1
+	return lik_list
+
+
 
 
 def G0_norm_mean(n=1):
@@ -100,7 +149,7 @@ def G0_beta_shape(n=1):
 	return np.exp(np.random.uniform(-2.3, 1.61, size=n))
 
 
-def update_multiplier_proposal(q,d=1.1,f=0.25):
+def update_multiplier_proposal(q,d=1.05,f=0.25):
 	S=np.shape(q)
 	ff=np.random.binomial(1,f,S)
 	u = np.random.uniform(0,1,S)
@@ -145,8 +194,9 @@ def DDP_gibbs_sampler(arg):
 				par_k1[j] = np.concatenate((par_k1[j],f_g()), axis=0)
 
 		# construct prob vector FAST!
-		lik_vec=np.array([logLik(d[i],par_k1,len(d),i) for i in range(len(d))])
-		lik_vec = np.sum(lik_vec, axis=0)
+		#lik_vec=np.array([logLik(d[i],par_k1,i) for i in range(len(d))])
+		#lik_vec = np.sum(lik_vec, axis=0)
+		lik_vec=logLik(d,par_k1,1)
 		rel_lik = calc_rel_prob(lik_vec)
 		if len(par_k1[0])>len(eta): # par_k1 add one element only when i is not singleton
 			eta[ind[i]] -= 1
@@ -190,9 +240,10 @@ def read_trait_data(data_path):
 		 if len(row)<2: continue
 		 row=np.array(row)
 		 data_lol.append(row)
-	 return data_lol
+	return data_lol
 
-run_normal = 1
+empirical_data = 1
+run_normal = 0
 run_beta   = 0
 # simulate NORMAL data
 if run_normal:
@@ -222,21 +273,41 @@ if run_beta:
 	list_of_G_functions = [G0_beta_shape,G0_beta_shape]
 	parA = [np.random.uniform(0.8,1.1,1),np.random.uniform(0.8,1.1,1)] # vector of unique parameters (of len = K)
 	list_proposals = [ update_multiplier_proposal, update_multiplier_proposal]
-	logLik = logLikBeta
+	logLik = calc_lik_BetaPoi
 
 if empirical_data:
-	data = read_trait_data("data_path")
+	data = []
+	for i in range(50):
+		alpha, beta = 2,2
+		n_bins = np.random.choice(np.arange(2,25))
+		b_multi = get_pmf_beta_discrete(n_bins, alpha, beta)
+		lam_vec = 12 * b_multi * n_bins
+		data.append(np.random.poisson(lam_vec,n_bins))
+	for i in range(50):
+		alpha, beta = 1,1
+		n_bins = np.random.choice(np.arange(2,25))
+		b_multi = get_pmf_beta_discrete(n_bins, alpha, beta)
+		lam_vec = 12 * b_multi * n_bins
+		data.append(np.random.poisson(lam_vec,n_bins))
+	for i in range(50):
+		alpha, beta =1.5,0.5
+		n_bins = np.random.choice(np.arange(2,25))
+		b_multi = get_pmf_beta_discrete(n_bins, alpha, beta)
+		lam_vec = 12 * b_multi * n_bins
+		data.append(np.random.poisson(lam_vec,n_bins))
+	#data = read_trait_data("/Users/danielesilvestro/Software/LiteRate/shapeRate/test.txt")
+	print(data)
 	list_of_G_functions = [G0_beta_shape,G0_beta_shape]
 	parA = [np.random.uniform(0.8,1.1,1),np.random.uniform(0.8,1.1,1)] # vector of unique parameters (of len = K)
 	list_proposals = [ update_multiplier_proposal, update_multiplier_proposal]
-	logLik = calc_lik_BetaBin
+	logLik = calc_lik_BetaPoi #calc_lik_BetaBin
 
 
 n_data= len(data)
 
 # init psi, indicators
 ind = np.zeros(n_data).astype(int)        # indicators (of len = n_data)
-
+print(ind)
 target_k = 1
 hp_gamma_shape = 2.
 hp_gamma_rate  = get_rate_HP(n_data,target_k,hp_gamma_shape)
@@ -263,12 +334,20 @@ for IT in range(10000):
 		
 	else:
 		# STANDARD MCMC
-		par = [0,0]
-		par[0], hasting1 = list_proposals[0](parA[0])
-		par[1], hasting2 = list_proposals[1](parA[1])
-		lik = np.sum([logLik(data[i],[par[0][ind[i]],par[1][ind[i]]],len(data[i])) for i in range(n_data)])
+		par = deepcopy(parA)
+		if np.random.random()<0.5:
+			par[0], hasting = list_proposals[0](parA[0])
+		else:
+			par[1], hasting = list_proposals[1](parA[1])
+		# loop over lineage (i)
+		# calculate lik for lineage i, given alpha,beta associated with lineage i
+		# ind = indicators for cluster ID of each lineage	
+		# eg ind[i] is the cluster ID for lineage i
+		# par[0] = list of alphas of length = n. clusters
+		# par[1] = list of betas of length = n. clusters
+		lik = np.sum([logLik(data[i],[par[0][ind[i]],par[1][ind[i]]]) for i in range(n_data)])
 		
-		if lik-likA + hasting1+hasting2 >= log(np.random.uniform(0,1)):
+		if lik-likA + hasting >= log(np.random.uniform(0,1)):
 			likA = lik
 			parA = par
 	
