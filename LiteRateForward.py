@@ -15,7 +15,7 @@ from literate_library import *
 
 np.set_printoptions(suppress=True)
 np.set_printoptions(precision=3)  
-print("\n\n             LiteRate - 20190205\n")
+print("\n\n             LiteRate - 20200206\n")
 
 ####### BEGIN FUNCTIONS for RJMCMC #######
 def prior_sym_beta(x,a): 
@@ -336,7 +336,7 @@ p = argparse.ArgumentParser() #description='<input file>')
 p.add_argument('-v',       action='version', version='%(prog)s')
 p.add_argument('-d',       type=str, help='data file', default="", metavar="") 
 p.add_argument('-n',       type=int, help='n. MCMC iterations', default=10000000, metavar=10000000)
-p.add_argument('-p',       type=int, help='print frequency', default=1000, metavar=1000) 
+#p.add_argument('-p',       type=int, help='print frequency', default=1000, metavar=1000) 
 p.add_argument('-s',       type=int, help='sampling frequency', default=1000, metavar=1000) 
 p.add_argument('-seed',    type=int, help='seed (set to -1 to make it random)', default= -1, metavar= -1)
 #p.add_argument('-present_year',    type=int, help="""set to: -1 for standard pyrate datasets (time BP), \
@@ -363,7 +363,7 @@ np.random.seed(rseed)
 
 n_iterations = args.n
 s_freq = args.s
-p_freq = args.p
+p_freq = args.s
 TBP=args.TBP
 
 model_BDI = args.model_BDI
@@ -381,8 +381,8 @@ const_rates  = args.const_rates
 ####### Parse DATA #######
 f = args.d
 t_file=np.genfromtxt(f, skip_header=1)
-ts_years = t_file[:,2]
-te_years = t_file[:,3]
+ts_years = t_file[:,1]
+te_years = t_file[:,2]
 if TBP==True:
     ts= max(ts_years)-ts_years
     te= max(ts_years)- te_years
@@ -397,8 +397,6 @@ else:
 	else:
 		ts = ts_years
 		te = te_years
-	
-		
 
 te = te + args.death_jitter
 
