@@ -287,7 +287,7 @@ def combine_logs(mcmc_files, wd, burnin_pct):
     sp_events=[];ex_events=[];br_length=[]
     for file_name in mcmc_files:
         file_name=file_name.replace('mcmc.log','div.log')
-        div=np.loadtxt(file_name,skiprows=1)
+        div=np.genfromtxt(file_name,skip_header=1)
         sp_events.append(div[:,0]);ex_events.append(div[:,1]);br_length.append(div[:,2])
     sp_events=np.mean(np.array(sp_events),axis=0);ex_events=np.mean(np.array(ex_events),axis=0);br_length=np.mean(np.array(br_length),axis=0)
     combined_div=pd.DataFrame({'sp_events':sp_events,'ex_events':ex_events,'br_length':br_length})
