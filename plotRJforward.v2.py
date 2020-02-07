@@ -357,7 +357,7 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
         #except:
         #       print "Could not read file:", mcmc_file
     r_str += "\n\nn <- dev.off()"
-    out="%s/%s_RTT_plots.r" % (wd,outname)
+    out="%s_RTT_plots.r" % (outname)
     outfile = open(out, "w")
     outfile.writelines(r_str)
     outfile.close()
