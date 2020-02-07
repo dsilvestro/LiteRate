@@ -361,7 +361,7 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
     outfile = open(out, "w")
     outfile.writelines(r_str)
     outfile.close()
-    cmd="cd %s; Rscript %s_RTT_plots.r" % (wd,outname)
+    cmd="Rscript %s_RTT_plots.r" % (outname)
     print( "Plots saved in %s (%s_RTT_plots)" % (wd,outname))
     os.system(cmd)
 
