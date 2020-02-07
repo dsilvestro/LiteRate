@@ -306,7 +306,7 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
     if logT==1: outname = stem="_log_"
     else: outname = stem
     if max_age>0: outname+= "t%s" % (int(max_age))
-    r_str = "\n\npdf(file='%s/%s_RTT_plots.pdf',width=12, height=8)\npar(mfrow=c(2,4))\nlibrary(scales)" % (wd,outname)
+    r_str = "\n\npdf(file='%s_RTT_plots.pdf',width=12, height=8)\npar(mfrow=c(2,4))\nlibrary(scales)" % (outname)
 
     if combine==1:
         print("Combining directory to 1 log...\n")
