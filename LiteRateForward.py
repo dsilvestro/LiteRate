@@ -241,7 +241,7 @@ def runMCMC(arg):
 			# update birth part
 			if r[1] < .5 or len(L_acc)==1:
 				# update rates
-				L, hasting = update_multiplier_freq(L_acc)
+				L, hasting = update_multiplier_freq(L_acc, f=update_fraction)
 			else:
 				# update times (hastings = 0 because we are doing symmetric update)
 				timesL = update_times(timesLA)
@@ -251,7 +251,7 @@ def runMCMC(arg):
 			# update M 
 			if r[1] < .5 or len(M_acc)==1:
 				# update rates
-				M, hasting = update_multiplier_freq(M_acc)
+				M, hasting = update_multiplier_freq(M_acc, f=update_fraction)
 			else:
 				# update times (hastings = 0 because we are doing symmetric update)
 				timesM = update_times(timesMA)
@@ -358,6 +358,8 @@ p.add_argument('-use_rate_HP',    type=int, help='0: no hyper-prior on rates, 1:
 p.add_argument('-Poisson_prior',  type=float, help='0: use hyper-prior on n. shifts, >0:  fixed prior on n. shifts', default= 0, metavar= 0)
 p.add_argument('-rm_first_bin',   type=float, help='if set to 1 it removes the first time bin (if max time is not the origin)', default= 0, metavar= 0)
 p.add_argument('-calc_adequacy',   type=int, help='if set to 1 calculates and log to file adequacy', default= 1, metavar= 1)
+p.add_argument('-update_fraction',   type=float, help='', default= 0.75, metavar= 0.75)
+p.add_argument('-out',       type=str, help='data file', default="", metavar="") 
 
 args = p.parse_args()
 
@@ -368,7 +370,7 @@ random.seed(rseed)
 np.random.seed(rseed)
 
 calc_adequacy = args.calc_adequacy
-
+update_fraction = args.update_fraction
 
 n_iterations = args.n
 s_freq = args.s
@@ -379,6 +381,7 @@ model_BDI = args.model_BDI
 if model_BDI==0: out_name = "_BD"
 if model_BDI==1: out_name = "_ID"
 if model_BDI==2: out_name = "_BDk"
+out_name = out_name + args.out
 
 if model_BDI<=1: calc_likelihood = BDI_partial_lik # define likelihood function
 elif model_BDI==2: calc_likelihood = BD_lik_Keiding
