@@ -257,7 +257,7 @@ def runMCMC(arg):
 				timesM = update_times(timesMA)
 				indM = get_rate_index(np.floor(timesM))
 			
-		elif r[0] < 0.99 and const_rates==0:
+		elif r[0] < 0.999 and const_rates==0:
 			# do RJ
 			L,timesL, M,timesM, hasting, update_L = RJMCMC([L_acc,M_acc, timesLA, timesMA])
 			if update_L==1: indL = get_rate_index(np.floor(timesL))
@@ -475,8 +475,9 @@ if rm_first_bin:
 div_rows = zip(sp_events_bin,ex_events_bin,br_length_bin)
 div_logfile.write('sp_events\tex_events\tbr_length\n')
 writer = csv.writer(div_logfile,delimiter='\t')
-for row in div_rows: writer.writerow(row)
-
+for row in div_rows: 
+	writer.writerow(row)
+div_logfile.close()
 
 sp_events_bin = np.array(sp_events_bin)
 ex_events_bin = np.array(ex_events_bin)
