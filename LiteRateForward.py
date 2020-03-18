@@ -17,6 +17,7 @@ np.set_printoptions(suppress=True)
 np.set_printoptions(precision=3)  
 print("\n\n             LiteRate - 20200206\n")
 
+
 ####### BEGIN FUNCTIONS for RJMCMC #######
 def prior_sym_beta(x,a): 
 	return scipy.stats.beta.logpdf(x, a,a)
@@ -306,8 +307,12 @@ def runMCMC(arg):
 		if iteration % s_freq ==0:
 			# MCMC log
 			#compute adequacy stats
-			adequacy=calculate_r_squared(B_EMP,D_EMP,L_acc[indLA],M_acc[indMA])
-			log_state = map(str,[iteration,likA+priorA,likA,priorA,mean(L_acc),mean(M_acc),len(L_acc),len(M_acc),start_time,end_time] + Gamma_rate + [Poi_lambda_rjHP] + list(adequacy) )
+			if calc_adequacy:
+				adequacy=calculate_r_squared(B_EMP,D_EMP,L_acc[indLA],M_acc[indMA])
+				log_state = map(str,[iteration,likA+priorA,likA,priorA,mean(L_acc),mean(M_acc),len(L_acc),len(M_acc),start_time,end_time] + Gamma_rate + [Poi_lambda_rjHP] + list(adequacy) )
+			else:
+				adequacy = [0]
+				log_state = map(str,[iteration,likA+priorA,likA,priorA,mean(L_acc),mean(M_acc),len(L_acc),len(M_acc),start_time,end_time] + Gamma_rate + [Poi_lambda_rjHP] )
 			mcmc_logfile.write('\t'.join(log_state)+'\n')
 			mcmc_logfile.flush()
 			# log marginal rates/times
@@ -325,7 +330,8 @@ def runMCMC(arg):
 			print("\tex.times:", timesMA)
 			print("\tsp.rates:", L_acc)
 			print("\tex.rates:", M_acc)
-			print("\tR^2:",adequacy[1])
+			if calc_adequacy:
+				print("\tR^2:",adequacy[1])
 
 		
 		iteration +=1 
@@ -351,6 +357,7 @@ p.add_argument('-death_jitter', type=float, help="""Determines the amount to jit
 p.add_argument('-use_rate_HP',    type=int, help='0: no hyper-prior on rates, 1: hyper-prior on rates', default= 1, metavar= 1)
 p.add_argument('-Poisson_prior',  type=float, help='0: use hyper-prior on n. shifts, >0:  fixed prior on n. shifts', default= 0, metavar= 0)
 p.add_argument('-rm_first_bin',   type=float, help='if set to 1 it removes the first time bin (if max time is not the origin)', default= 0, metavar= 0)
+p.add_argument('-calc_adequacy',   type=int, help='if set to 1 calculates and log to file adequacy', default= 1, metavar= 1)
 
 args = p.parse_args()
 
@@ -359,6 +366,8 @@ if args.seed==-1:
 else: rseed=args.seed	
 random.seed(rseed)
 np.random.seed(rseed)
+
+calc_adequacy = args.calc_adequacy
 
 
 n_iterations = args.n
@@ -422,10 +431,18 @@ except OSError as e:
 
 out_log = "%s/%s%s_mcmc.log" % (out_dir, file_name,out_name)
 mcmc_logfile = open(out_log , "w") 
-mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg",\
+if calc_adequacy:
+	mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg",\
 "K_l","K_m","root_age","death_age","gamma_rate_hp_BI","gamma_rate_hp_D","poisson_rate_hp",\
 "corr_coeff","rsquared","gelman_r2"
 ])+'\n')
+else:
+	mcmc_logfile.write('\t'.join(["it","posterior","likelihood","prior","lambda_avg","mu_avg",\
+	"K_l","K_m","root_age","death_age","gamma_rate_hp_BI","gamma_rate_hp_D","poisson_rate_hp"])+'\n')
+	
+
+
+
 out_log = "%s/%s%s_sp_rates.log" % (out_dir, file_name, out_name )
 sp_logfile = open(out_log , "w") 
 out_log = "%s/%s%s_ex_rates.log" % (out_dir, file_name, out_name )
@@ -465,7 +482,8 @@ br_length_bin = np.array(br_length_bin)
 n_bins = len(sp_events_bin)
 Tk = np.ones(n_bins) # time spent in state
 
-B_EMP,D_EMP=print_empirical_rates(sp_events_bin,ex_events_bin,br_length_bin)
+if calc_adequacy:
+	B_EMP,D_EMP=print_empirical_rates(sp_events_bin,ex_events_bin,br_length_bin)
 
 ####### init parameters #######
 L_acc= np.random.gamma(2,2,1)
