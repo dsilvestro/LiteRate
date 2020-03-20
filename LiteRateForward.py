@@ -68,13 +68,12 @@ def remove_shift_RJ_weighted_mean(rates,times):
 	# return new rate vector, new time vector, prod between hastings ratio and Jacobian
 	return rates_prime,times_prime,log_q_prob+Jacobian
 	
-def RJMCMC(arg):
+def RJMCMC(arg, sample_shift_mu=0.5):
 	# args = birth-rate vector (L), death rates (M), rate shifts for L and M 
 	[L,M, timesL, timesM]=arg
 	r=np.random.random(2)
 	newL,newtimesL,log_q_probL = L,timesL,0
 	newM,newtimesM,log_q_probM = M,timesM,0
-	sample_shift_mu = 0.5
 	min_allowed_n_rates = 1
 	# update birth model with 50% chance
 	if r[0]>sample_shift_mu:
@@ -111,7 +110,7 @@ def get_post_rj_HP(xl,xm): # returns rate parameter for the Poisson distribution
 # VECTORIZED LIK FUNCTIONS
 def get_br(t0,t1):
 	s, e  = ts+0., te+0.
-	s[s<t0] = t0
+	s[s<t0] = t0 
 	e[e>t1] = t1
 	dt = e - s
 	return np.sum(dt[dt>0])
@@ -138,8 +137,11 @@ def get_rate_index(times):
 def BD_lik_Keiding(L_acc_vec,M_acc_vec):
 	# BD likelihood
 	try:
-		Blik = sum(log(L_acc_vec)*sp_events_bin - L_acc_vec*br_length_bin) 
-		Dlik = sum(log(M_acc_vec)*ex_events_bin - M_acc_vec*br_length_bin) 
+		Blik = np.sum(log(L_acc_vec)*sp_events_bin - L_acc_vec*br_length_bin) 
+		if only_dead: 
+			Dlik = np.sum(log(M_acc_vec)*ex_events_bin_dead - M_acc_vec*br_length_bin_dead) 
+		else:
+			Dlik = np.sum(log(M_acc_vec)*ex_events_bin - M_acc_vec*br_length_bin) 
 	except:
 		print(len(L_acc_vec),len(M_acc_vec),len(sp_events_bin))
 		sys.exit()
@@ -237,21 +239,33 @@ def runMCMC(arg):
 		hasting = 0
 		gibbs=0
 		priorPoi = 0
-		if r[0]< 0.4:
+		
+		if const_death_rate:
+			sample_shift_mu = 0
+			b_freq = 0.7
+			d_freq = 0.8
+			update_fraction_L, update_fraction_M = update_fraction, 1
+		else:
+			sample_shift_mu = 0.5
+			b_freq = 0.4
+			d_freq = 0.8
+			update_fraction_L, update_fraction_M = update_fraction, update_fraction
+		
+		if r[0]< b_freq:
 			# update birth part
 			if r[1] < .5 or len(L_acc)==1:
 				# update rates
-				L, hasting = update_multiplier_freq(L_acc, f=update_fraction)
+				L, hasting = update_multiplier_freq(L_acc, f=update_fraction_L)
 			else:
 				# update times (hastings = 0 because we are doing symmetric update)
 				timesL = update_times(timesLA)
 				indL = get_rate_index(np.floor(timesL))
 			
-		elif r[0] < 0.8:
+		elif r[0] < d_freq:
 			# update M 
 			if r[1] < .5 or len(M_acc)==1:
 				# update rates
-				M, hasting = update_multiplier_freq(M_acc, f=update_fraction)
+				M, hasting = update_multiplier_freq(M_acc, f=update_fraction_M)
 			else:
 				# update times (hastings = 0 because we are doing symmetric update)
 				timesM = update_times(timesMA)
@@ -259,7 +273,7 @@ def runMCMC(arg):
 			
 		elif r[0] < 0.999 and const_rates==0:
 			# do RJ
-			L,timesL, M,timesM, hasting, update_L = RJMCMC([L_acc,M_acc, timesLA, timesMA])
+			L,timesL, M,timesM, hasting, update_L = RJMCMC([L_acc,M_acc, timesLA, timesMA], sample_shift_mu)
 			if update_L==1: indL = get_rate_index(np.floor(timesL))
 			else: indM = get_rate_index(np.floor(timesM))
 			priorPoi = Poisson_prior(len(L),Poi_lambda_rjHP)+Poisson_prior(len(M),Poi_lambda_rjHP)
@@ -348,7 +362,8 @@ p.add_argument('-seed',    type=int, help='seed (set to -1 to make it random)', 
 #p.add_argument('-present_year',    type=int, help="""set to: -1 for standard pyrate datasets (time BP), \
 #0: time AD and present set to most recent TE, 1: time AD present user defined """, default= 0, metavar= 0)
 p.add_argument('-const_rates',    type=int, help="set to: 1 for constant B/I and D rates" , default= 0, metavar= 0)
-p.add_argument('-model_BDI',      type=int, help='0: birth-death; 1: immigration-death; 2 birth-death (Keiding likelihood)', default= 0, metavar= 0)
+p.add_argument('-const_death_rate',    type=int, help="set to: 1 for constant D rates" , default= 0, metavar= 0)
+p.add_argument('-model_BDI',      type=int, help='0: birth-death; 1: immigration-death; 2 birth-death (Keiding likelihood); 3 Keiding likelihood, only no extant', default= 0, metavar= 0)
 p.add_argument('-TBP', help='Default is AD. Include for TBP.', default=False, action='store_true')
 p.add_argument('-first_year',    type=int, help='This is a convenience function if you would like to specify a different start to your dataset. Unspecified for TBP.', default= -1, metavar= -1)
 p.add_argument('-last_year',    type=int, help='This is a convenience function if you would like to specify a different end to your dataset. Unspecified for TBP.', default= -1, metavar= -1)
@@ -377,19 +392,25 @@ s_freq = args.s
 p_freq = args.p
 TBP=args.TBP
 
+only_dead=0
+
 model_BDI = args.model_BDI
 if model_BDI==0: out_name = "_BD"
 if model_BDI==1: out_name = "_ID"
 if model_BDI==2: out_name = "_BDk"
+if model_BDI==3: 
+	out_name = "_BDd"
+	only_dead=1
 out_name = out_name + args.out
 
 if model_BDI<=1: calc_likelihood = BDI_partial_lik # define likelihood function
-elif model_BDI==2: calc_likelihood = BD_lik_Keiding
+else: calc_likelihood = BD_lik_Keiding
 
 use_rate_HP = args.use_rate_HP
 Poisson_HP = args.Poisson_prior # if 0 use HP, else fixed Poi 
 rm_first_bin = args.rm_first_bin
 const_rates  = args.const_rates
+const_death_rate = args.const_death_rate
 ####### Parse DATA #######
 f = args.d
 t_file=np.genfromtxt(f, skip_header=1)
@@ -410,8 +431,8 @@ else:
 		ts = ts_years
 		te = te_years
 
+#ts = ts - args.death_jitter
 te = te + args.death_jitter
-
 
 start_time = min(ts)
 end_time = max(te)
@@ -465,6 +486,32 @@ for i in range(int(np.min(ts)),int(np.max(te))):
 	br_length_bin.append(c)
 	#print i, i+1, b
 
+print(ex_events_bin)
+print(sum(br_length_bin), range(int(np.min(ts)),int(np.max(te))))
+
+if only_dead:
+	s, e  = ts+0., te+0.
+	s = s[e<end_time]
+	e = e[e<end_time]
+
+	ex_events_bin_dead = []
+	br_length_bin_dead = []
+	
+	for i in range(int(np.min(ts)),int(np.max(te))):
+		[t0,t1]=[i,i+1]
+		s_temp, e_temp = s+0, e+0
+		n_exti_events = len(np.intersect1d((e > t0).nonzero()[0], (e <= t1).nonzero()[0]))
+		s_temp[s<t0] = t0 
+		e_temp[e>t1] = t1
+		dt = e_temp - s_temp
+		tot_br_length =  np.sum(dt[dt>0])
+		ex_events_bin_dead.append(n_exti_events)
+		br_length_bin_dead.append(tot_br_length)
+		
+print(len(ex_events_bin_dead), len(sp_events_bin))
+print(sum(br_length_bin_dead),range(int(np.min(s)),int(np.max(e))),range(int(np.min(ts)),int(np.max(te))))
+
+
 if rm_first_bin:
 	# remove first bin
 	sp_events_bin = sp_events_bin[1:]
@@ -482,6 +529,11 @@ div_logfile.close()
 sp_events_bin = np.array(sp_events_bin)
 ex_events_bin = np.array(ex_events_bin)
 br_length_bin = np.array(br_length_bin)
+
+print(sum(sp_events_bin),sum(ex_events_bin), sum(br_length_bin), sum(ex_events_bin)/sum(br_length_bin))
+print(sp_events_bin)
+print(ex_events_bin)
+#quit()
 
 n_bins = len(sp_events_bin)
 Tk = np.ones(n_bins) # time spent in state
@@ -502,5 +554,4 @@ Gamma_shape = 2.    # shape parameter of Gamma prior on B/D rates
 hpGamma_shape = 1.2 # shape par of Gamma hyperprior on rate of Gamma priors on B/D rates
 hpGamma_rate =  0.1 # rate par of Gamma hyperprior on rate of Gamma priors on B/D rates
 
-check_lik = 0 # debug (set to 1 to compare vectorized likelihood against 'traditional' one)
 runMCMC([L_acc,M_acc,timesLA,timesMA])
