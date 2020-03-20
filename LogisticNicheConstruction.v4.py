@@ -34,6 +34,7 @@ seed=set_seed(args.seed)
 TS,TE,PRESENT,ORIGIN=parse_ts_te(args.d,args.TBP,args.first_year,args.last_year,args.death_jitter)
 
 ORIGIN, PRESENT, N_SPEC, N_EXTI, DT, N_TIME_BINS, TIME_RANGE=create_bins(ORIGIN, PRESENT,TS,TE,args.rm_first_bin)
+init_death = args.fix_death
 
 print(ORIGIN, PRESENT)
 
@@ -152,7 +153,7 @@ def __main__(parsed_args):
 	x0 = PRESENT - np.mean([ORIGIN, PRESENT]) # midpoint
 	div_0 = 10 # starting carrying capacity
 	l_max = 0.5 #max speciation rate
-	m_max = args.fix_death #max extinction rate
+	m_max = init_death #max extinction rate
 	nuB = 1.
 	nuD = 1.
 	
