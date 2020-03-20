@@ -90,6 +90,10 @@ def update_sliding_win(i, m=0, M=1, d=0.05):
 	if m==0: ii = abs(ii)
 	return ii
 
+def update_normal_nobound(i, d=0.05): 
+	ii = i+np.random.normal(0,d)
+	return ii
+
 def update_poisson_proposal(kt):
 	ktp = np.random.poisson(kt)
 	if ktp ==0: return kt,0
@@ -137,8 +141,13 @@ def prior_sym_beta(x,a):
 ####SET UP STUFF####			
 def parse_ts_te(input_file,TBP,first_year,last_year,death_jitter):
 	tbl=np.genfromtxt(input_file, skip_header=1)
-	ts_years = tbl[:,2]
-	te_years = tbl[:,3]
+	try:
+		ts_years = tbl[:,2]
+		te_years = tbl[:,3]
+	except:
+		ts_years = tbl[:,1]
+		te_years = tbl[:,2]
+
 	if TBP==True:
 		if first_year!=-1:
 			te_years=te_years[ts_years<=first_year]

@@ -23,7 +23,8 @@ np.set_printoptions(precision=3)
 p = core_arguments()
 #ADD EXTRA ARGUMENTS
 p.add_argument('-m_birth', type=int, help='0) use const b rates 1) DD birth 2) niche dep DD b', default=2,metavar=2)
-p.add_argument('-m_death', type=int, help='0) use const d rates 1) DD death 2) niche dep DD d', default=2,metavar=2)
+p.add_argument('-m_death', type=int, help='-1) fixed d rate 0) use const d rates 1) DD death 2) niche dep DD d', default=2,metavar=2)
+p.add_argument('-fix_death', type=float, help='Fix death rate (with -m_death -1)', default=0.1,metavar=0.1)
 
 
 args = p.parse_args()
@@ -33,6 +34,8 @@ seed=set_seed(args.seed)
 TS,TE,PRESENT,ORIGIN=parse_ts_te(args.d,args.TBP,args.first_year,args.last_year,args.death_jitter)
 
 ORIGIN, PRESENT, N_SPEC, N_EXTI, DT, N_TIME_BINS, TIME_RANGE=create_bins(ORIGIN, PRESENT,TS,TE,args.rm_first_bin)
+
+print(ORIGIN, PRESENT)
 
 B_EMP,D_EMP=print_empirical_rates(N_SPEC,N_EXTI,DT)
 
@@ -80,11 +83,12 @@ def likelihood_function(args):
 		niche_frac = DT/niche
 		birth_rates = get_brates(l_max,(niche_frac**nuB))
 	birth_lik = np.sum(log(birth_rates)*N_SPEC - birth_rates*DT)
+	#print(niche)
 
-	if M_DEATH ==0:	
+	if M_DEATH <=0:	
 		death_rates = np.ones(N_TIME_BINS)*m_max
-		niche = np.ones(N_TIME_BINS)
-		niche_frac = np.ones(N_TIME_BINS)
+		#niche = np.ones(N_TIME_BINS)
+		#niche_frac = np.ones(N_TIME_BINS)
 	elif M_DEATH ==1:
 		niche = get_const_K(TIME_RANGE,L,div_0)
 		niche_frac = DT/niche
@@ -95,6 +99,9 @@ def likelihood_function(args):
 		death_rates = get_drates(m_max,(niche_frac**nuD))
 	death_lik = np.sum(log(death_rates)*N_EXTI - death_rates*DT)
 	lik = np.array([birth_lik, death_lik])
+	# print(niche, M_DEATH)
+	# quit()
+	
 
 	return [lik, birth_rates, death_rates, niche, niche_frac]
 
@@ -102,7 +109,8 @@ def likelihood_function(args):
 def calc_prior(args):
 	#argsA=             np.array([l_max,  k,    x0, 	div_0,   L,	mu_correlation,  m_max, nu])
 	p = prior_gamma(args[0],a=1,s=10,l=0) #l_max
-	p += prior_gamma(args[1],a=1,s=10,l=0) #k
+	#p += prior_gamma(args[1],a=1,s=10,l=0) #k
+	p += prior_norm(args[1]) #k
 	p += prior_gamma(args[5],a=1,s=10,l=0) #m_max
 	p += prior_gamma(args[3],a=1,s=PRIOR_K0_L,l=0) #div_0
 	p += prior_gamma(args[4],a=1,s=PRIOR_K0_L,l=0) #L
@@ -115,11 +123,11 @@ def calc_prior(args):
 def __main__(parsed_args):	
 	
 	
-	out="pow2"
+	out=""
 	if M_BIRTH==0: out += "_LL"
 	elif M_BIRTH==1: out += "_LDD"
 	elif M_BIRTH==2: out += "_LDDN"
-	if M_DEATH==0: out += "_ML"
+	if M_DEATH<=0: out += "_ML"
 	elif M_DEATH==1: out += "_MDD"
 	elif M_DEATH==2: out += "_MDDN"
 	
@@ -141,10 +149,10 @@ def __main__(parsed_args):
 	
 	L = 20000 # maximum
 	k = 1.5 # steepness
-	x0 = 12 # midpoint
+	x0 = PRESENT - np.mean([ORIGIN, PRESENT]) # midpoint
 	div_0 = 10 # starting carrying capacity
 	l_max = 0.5 #max speciation rate
-	m_max = 0.20  #max extinction rate
+	m_max = args.fix_death #max extinction rate
 	nuB = 1.
 	nuD = 1.
 	
@@ -156,13 +164,16 @@ def __main__(parsed_args):
 	
 	
 	#constant birth and death
-	if M_BIRTH==0 and M_DEATH==0:
+	if M_BIRTH==0 and M_DEATH<=0:
 		#argsA=             np.array([l_max,  k,    x0, 	div_0,   L,	 m_max, nu])
 		update_multiplier = np.array([1.,  0,	0,        0,   0,         1 , 0, 0])
 	elif M_BIRTH==2 or M_DEATH==2:
 		update_multiplier = np.array([1.,  1,	0,        1,   1,      1 , 1, 1])   
 	else:
 		update_multiplier = np.array([1.,  0,	0,        0,   1,    1 , 1, 1])   
+	if M_DEATH== -1:
+		#argsA=             np.array([l_max, k, x0,   div_0,   L,	 m_max, nu])
+		update_multiplier *= np.array([1.,    0, 1,       1,   1,       0 , 1, 1])
 	
 	update_multiplier = update_multiplier/sum(update_multiplier)
 	
@@ -187,6 +198,8 @@ def __main__(parsed_args):
 		if rr[1]<0.1 and (M_BIRTH==2 or M_DEATH==2):
 			res = argsA+0
 			res[2] = update_sliding_win(res[2], m=0, M=PRESENT, d=1.5) #update midpoint (the only sliding window proposal)
+			if M_DEATH== -1:
+				res[1] = update_normal_nobound(res[1], d=0.2) #update slope
 			res = [res,0]
 		else:
 			res = update_multiplier_proposal_vec(args,d=1.1,f=update_multiplier) #update everything with multipliers
@@ -210,11 +223,11 @@ def __main__(parsed_args):
 			argsO=deepcopy(argsA) #when you copy lists, makes sure you dont change things by reference
 			argsO[2] += ORIGIN # right point in time
 			argsO[4] += argsO[3] #true max is div_0 + L
-			print(iteration, likA, argsO) #, args
+			#print(iteration, likA, argsO) #, args
 			
 			#compute adequacy stats
 			adequacy=calculate_r_squared(B_EMP,D_EMP,birth_rates,death_rates)
-			print(adequacy)
+			#print(adequacy)
 			l= [iteration,likA+priorA, likA,likBirthA,likDeathA, priorA] + list(argsO) + list(birth_rates) + list(death_rates) + list(niche) + list(nicheFrac) + list(adequacy)
 			wlog.writerow(l)
 			logfile.flush()
