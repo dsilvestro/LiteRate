@@ -172,9 +172,12 @@ def __main__(parsed_args):
 		update_multiplier = np.array([1.,  1,	0,        1,   1,      1 , 1, 1])   
 	else:
 		update_multiplier = np.array([1.,  0,	0,        0,   1,    1 , 1, 1])   
-	if M_DEATH== -1:
+	if M_DEATH== -1: # [DS: I need to fix this]
 		#argsA=             np.array([l_max, k, x0,   div_0,   L,	 m_max, nu])
 		update_multiplier *= np.array([1.,    0, 1,       1,   1,       0 , 1, 1])
+	if M_DEATH== -2:
+		#argsA=             np.array([l_max, k, x0,   div_0,   L,	 m_max, nu])
+		update_multiplier *= np.array([1.,    0, 1,       1,   1,       0 , 0, 0])
 	
 	update_multiplier = update_multiplier/sum(update_multiplier)
 	
