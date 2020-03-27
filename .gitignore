@@ -1,5 +1,5 @@
-!example_data/**/*
 *.log
+!/example_data/**/*
 .DS_Store
 
 *.un~
