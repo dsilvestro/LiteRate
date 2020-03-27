@@ -12,7 +12,7 @@ from scipy.special import gdtr, gdtrix
 from scipy.special import betainc
 import scipy.stats
 from literate_library import *
-
+from warnings import warn
 np.set_printoptions(suppress=True)
 np.set_printoptions(precision=3)  
 print("\n\n             LiteRate - 20200206\n")
@@ -414,8 +414,14 @@ const_death_rate = args.const_death_rate
 ####### Parse DATA #######
 f = args.d
 t_file=np.genfromtxt(f, skip_header=1)
-ts_years = t_file[:,1]
-te_years = t_file[:,2]
+if t_file.shape[1]==4:
+    warn('Four column (with clade) LiteRate input is deprecated. Use three columns.', FutureWarning)
+    ts_years = t_file[:,2]
+    te_years = t_file[:,3]
+else:
+    ts_years = t_file[:,1]
+    te_years = t_file[:,2]
+
 if TBP==True:
     ts= max(ts_years)-ts_years
     te= max(ts_years)- te_years
