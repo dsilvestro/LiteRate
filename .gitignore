@@ -1,4 +1,4 @@
-
+!example_data/**/*
 *.log
 .DS_Store
 
