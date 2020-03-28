@@ -514,8 +514,8 @@ if only_dead:
 		ex_events_bin_dead.append(n_exti_events)
 		br_length_bin_dead.append(tot_br_length)
 		
-#print(len(ex_events_bin_dead), len(sp_events_bin))
-#print(sum(br_length_bin_dead),range(int(np.min(s)),int(np.max(e))),range(int(np.min(ts)),int(np.max(te))))
+	print(len(ex_events_bin_dead), len(sp_events_bin))
+	print(sum(br_length_bin_dead),range(int(np.min(s)),int(np.max(e))),range(int(np.min(ts)),int(np.max(te))))
 
 
 if rm_first_bin:
