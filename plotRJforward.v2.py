@@ -254,15 +254,14 @@ def get_K_values(mcmc_tbl,head,col,par,burnin=0.2):
 def combine_logs(mcmc_files, wd, burnin_pct):
     #MCMC (w/header)
     mcmc_files=list(mcmc_files)
-    mcmc_files.remove(wd+'/COMBINED.mcmc.log')
     total_log=[]
     for file_name in mcmc_files:
-        with open(wd+'/'+file_name) as f:
+        with open(file_name) as f:
             file_log=f.readlines()
             header=file_log[0]
             burnin=int(burnin_pct*len(file_log[1:]))
             total_log+=file_log[burnin+1:]
-    with open(wd+'/COMBINED.mcmc.log','w') as o:
+    with open(wd+'/COMBINED_mcmc.log','w') as o:
         o.write(header)
         it_bool= (header.split('\t')[0]=='it')
         for i,l in enumerate(total_log):
@@ -273,54 +272,55 @@ def combine_logs(mcmc_files, wd, burnin_pct):
     total_log=[]
     for file_name in mcmc_files:
         file_name=file_name.replace('mcmc.log','sp_rates.log')
-        with open(wd+'/'+file_name) as f:
+        with open(file_name) as f:
             file_log=f.readlines()
             burnin=int(burnin_pct*len(file_log))
             total_log+=file_log[burnin:]
-    with open(wd+'/COMBINED.sp_rates.log','w') as o: o.writelines(total_log)
+    with open(wd+'/COMBINED_sp_rates.log','w') as o: o.writelines(total_log)
     #EX (no header)
     total_log=[]
     for file_name in mcmc_files:
         file_name=file_name.replace('mcmc.log','ex_rates.log')
-        with open(wd+'/'+file_name) as f:
+        with open(file_name) as f:
             file_log=f.readlines()
             burnin=int(burnin_pct*len(file_log))
             total_log+=file_log[burnin:]
-    with open(wd+'/COMBINED.ex_rates.log','w') as o: o.writelines(total_log)
+    with open(wd+'/COMBINED_ex_rates.log','w') as o: o.writelines(total_log)
     #DIV
     sp_events=[];ex_events=[];br_length=[]
     for file_name in mcmc_files:
         file_name=file_name.replace('mcmc.log','div.log')
-        div=np.genfromtxt(file_name,skip_header=1)
+        div=np.loadtxt(file_name,skiprows=1)
         sp_events.append(div[:,0]);ex_events.append(div[:,1]);br_length.append(div[:,2])
     sp_events=np.mean(np.array(sp_events),axis=0);ex_events=np.mean(np.array(ex_events),axis=0);br_length=np.mean(np.array(br_length),axis=0)
     combined_div=pd.DataFrame({'sp_events':sp_events,'ex_events':ex_events,'br_length':br_length})
-    combined_div[['sp_events','ex_events','br_length']].to_csv(wd+'/COMBINED.div.log',sep='\t',index=False)
+    combined_div[['sp_events','ex_events','br_length']].to_csv(wd+'/COMBINED_div.log',sep='\t',index=False)
 
 def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,max_age=0,logT=0,combine=0):
     #FIRST CLEAR COMBIEND FILES
-    direct="%s/*%s*mcmc.log" % (path_dir,name_tag)
+    direct="%s/*%s*mcmc.log" % (path_dir,name_tag) 
     files=glob.glob(direct)
-    files=np.sort(files)
+    files.sort()
     stem_file=files[0]
     stem=stem_file.replace('_mcmc.log','')
     wd = "%s" % os.path.dirname(stem_file)
     #print(name_file, wd)
+    if wd+'/COMBINED_mcmc.log' in files: files.remove(wd+'/COMBINED_mcmc.log')
     print( "found", len(files), "log files...\n")
     if logT==1: outname = stem="_log_"
     else: outname = stem
     if max_age>0: outname+= "t%s" % (int(max_age))
-    r_str = "\n\npdf(file='%s_RTT_plots.pdf',width=12, height=8)\npar(mfrow=c(2,4))\nlibrary(scales)" % (outname)
-
     if combine==1:
         print("Combining directory to 1 log...\n")
         combine_logs(files,wd,burnin)
-        files=['COMBINED.mcmc.log']
+        files=[wd+'/COMBINED_mcmc.log']
         burnin=0
-
+        outname=wd+"/COMBINED"
+    r_str = "\n\npdf(file='%s_RTT_plots.pdf',width=12, height=8)\npar(mfrow=c(2,4))\nlibrary(scales)" % (outname)
     for mcmc_file in files:
         if 2>1: #try:
             name_file = os.path.splitext(os.path.basename(mcmc_file))[0]
+            print(mcmc_file)
             if min_age==0 and max_age==0: # get empirical time range
                 tbl=np.loadtxt(mcmc_file, skiprows=1)
                 head = next(open(mcmc_file)).split() # should be faster
