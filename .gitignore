@@ -6,3 +6,6 @@
 
 *.py~
 plotRJforward.v2old.py
+*.pyc
+.Rhistory
+*checkpoint.py

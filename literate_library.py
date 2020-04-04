@@ -17,7 +17,43 @@ import scipy.stats
 import scipy.misc
 import random
 from scipy import stats
+from warnings import warn
 ###LITERATE LIBRARY###
+
+###LOG PARSING STUFF###
+def calcHPD(data, level=0.95) :
+    assert (0 < level < 1)	
+    d = list(data)
+    d.sort()
+    nData = len(data)
+    nIn = int(round(level * nData))
+    if nIn < 2 :
+        raise RuntimeError("not enough data")
+    i = 0
+    r = d[i+nIn-1] - d[i]
+    for k in range(len(d) - (nIn - 1)) :
+        rk = d[k+nIn-1] - d[k]
+        if rk < r :
+            r = rk
+            i = k
+    assert 0 <= i <= i+nIn-1 < len(d)
+    return np.array([d[i], d[i+nIn-1]])
+
+def print_R_vec(name,v):
+    new_v=[]
+    if len(v)==0: vec= "%s=c()" % (name)
+    elif len(v)==1: vec= "%s=c(%s)" % (name,v[0])
+    elif len(v)==2: vec= "%s=c(%s,%s)" % (name,v[0],v[1])
+    else:
+        for j in range(0,len(v)): 
+            value=v[j]
+            if np.isnan(v[j]): value="NA"
+            new_v.append(value)
+
+        vec="%s=c(%s, " % (name,new_v[0])
+        for j in range(1,len(v)-1): vec += "%s," % (new_v[j])
+        vec += "%s)"  % (new_v[j+1])
+    return vec
 
 ###MISC####
 def approx_log_fact(n):
@@ -140,14 +176,14 @@ def prior_sym_beta(x,a):
 
 ####SET UP STUFF####			
 def parse_ts_te(input_file,TBP,first_year,last_year,death_jitter):
-	tbl=np.genfromtxt(input_file, skip_header=1)
-	try:
-		ts_years = tbl[:,2]
-		te_years = tbl[:,3]
-	except:
-		ts_years = tbl[:,1]
-		te_years = tbl[:,2]
-
+	t_file=np.genfromtxt(input_file, skip_header=1)
+	if t_file.shape[1]==4:
+		warn('Four column (with clade) LiteRate input is deprecated. Use three columns.', FutureWarning)
+		ts_years = t_file[:,2]
+		te_years = t_file[:,3]
+	else:
+		ts_years = t_file[:,1]
+		te_years = t_file[:,2]
 	if TBP==True:
 		if first_year!=-1:
 			te_years=te_years[ts_years<=first_year]
