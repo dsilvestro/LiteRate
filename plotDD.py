@@ -21,7 +21,7 @@ else: head=None
 def make_vec_dict(input_file):
     vec_dict={}
 
-    vec_dict['time']=TIME_RANGE
+    vec_dict['time']=np.arange(ORIGIN,PRESENT-1)+.5
     vec_dict['net_diversity']=DT
     vec_dict['emp_birth']=N_SPEC/DT; vec_dict['emp_birth'][0]=None
     vec_dict['emp_death']=N_EXTI/DT; vec_dict['emp_death'][0]=None
@@ -68,6 +68,8 @@ def make_vec_dict(input_file):
 
         
 def ggplot_rates(vec_dict,out_path):
+    y_min=min(np.nanmin(vec_dict['birth_minHPD']), np.nanmin(vec_dict['death_minHPD']),np.nanmin(vec_dict['emp_birth']),np.nanmin(vec_dict['emp_death']), 0 ) * 1.1 // 0.1 * 0.1
+    y_max=max(np.nanmax(vec_dict['birth_maxHPD']), np.nanmax(vec_dict['death_maxHPD']),np.nanmax(vec_dict['emp_birth']),np.nanmax(vec_dict['emp_death']) ) * 1.1 // 0.1 * 0.1 
     out_str=''
     out_str+="library('ggplot2')\nlibrary('gridExtra')\n"
     for v in vec_dict: out_str += print_R_vec('\n'+v,vec_dict[v])
@@ -76,26 +78,22 @@ def ggplot_rates(vec_dict,out_path):
     geom_line(size=.7,col='blue') +\n\
     geom_line(aes(time,death_rate),col='red',size=.7) +\n \
     scale_color_manual(values = c('blue','red')) +\n\
-    scale_x_continuous(breaks=seq({0},{1},5),minor_breaks=seq({0},{1},1)) +\n\
-    scale_y_continuous(breaks=seq({2},{3},.1),limits = c({2},{3})) + \n\
+    scale_x_continuous(breaks=seq(time[1]-time[1]%%-5,time[length(time)]-time[length(time)]%%-5,5),minor_breaks=seq(time[1]-time[1]%%-5,time[length(time)]-time[length(time)]%%-5,1)) +\n\
+    scale_y_continuous(breaks=seq({0},{1},.1),limits = c({0},{1})) + \n\
     geom_ribbon(aes_string(ymin=birth_minHPD,ymax=birth_maxHPD,fill=shQuote('red')),alpha=.2,col=NA)+ \n\
     geom_ribbon(aes_string(ymin=death_minHPD,ymax=death_maxHPD,fill=shQuote('blue')),alpha=.2,col=NA)+\n\
     geom_line(aes(time,emp_birth,col='eb'),size=.5,linetype = 'dashed')+\n\
     geom_line(aes(time,emp_death,col='ed'),size=.5,linetype = 'dashed')+\n\
     theme(legend.position = 'none')+\n\
-    labs(x='Time',y='Rates')\n\n\n".format(ORIGIN,
-                               PRESENT,
-                                min(np.amin(vec_dict['birth_minHPD']), np.amax(vec_dict['death_minHPD']),np.amax(vec_dict['emp_birth']),np.amax(vec_dict['emp_death']), 0 ) // 0.1 * 0.1, 
-                               max(np.amax(vec_dict['birth_maxHPD']), np.amax(vec_dict['death_maxHPD']),np.amax(vec_dict['emp_birth']),np.amax(vec_dict['emp_death']) )// 0.1 * 0.1 
-                                )
+    labs(x='Time',y='Rates')\n\n\n".format(y_min,y_max)
     #NET DIVERSITY PLOT
     out_str+="div_plot<-ggplot(rates.dat,aes(time,net_diversity))+\n\
       geom_line(aes(time,net_diversity,col='Net Diversity'),col='dark green',size=.5,linetype = 'dashed')+\n\
       geom_line(aes(time,niche,col='Carrying Capacity'),size=.5) +\n\
-      scale_x_continuous(breaks=seq({0},{1},5),minor_breaks=seq({0},{1},1)) +\n\
+    scale_x_continuous(breaks=seq(time[1]-time[1]%%-5,time[length(time)]-time[length(time)]%%-5,5),minor_breaks=seq(time[1]-time[1]%%-5,time[length(time)]-time[length(time)]%%-5,1)) +\n\
       geom_ribbon(aes(ymin=niche_minHPD,ymax=niche_maxHPD,fill='Carrying Capacity'),alpha=.30,col=NA) +\n\
       theme(legend.position = 'none')+\n\
-      labs(x='Time',y='Number of Lineages')\n".format(ORIGIN,PRESENT)
+      labs(x='Time',y='Number of Lineages')\n"
     out_str+="fig<-grid.arrange(rate_plot,div_plot,nrow = 2,ncol=1)\n"
     out_str+="ggsave(file='{0}/DDRate_plot.pdf', plot=fig)\n".format(out_path)
     
