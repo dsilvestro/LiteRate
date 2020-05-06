@@ -194,7 +194,8 @@ def pretty_ggplot(resS,resE,div_log):
     emp_death=tbl[:,1]/tbl[:,2]; emp_death[0]=None
     
     out_str = "\n\n#PRETTY PLOT\n"
-    out_str += "library(ggplot2)\n"
+    out_str+="usePackage <- function(p){\nif (!is.element(p, installed.packages()[,1]))\ninstall.packages(p, dep = TRUE)\nrequire(p, character.only = TRUE)}\n"
+    out_str+="usePackage('ggplot2')\n"
     out_str += print_R_vec("\nemp_birth",emp_birth)
     out_str += print_R_vec("\nemp_death",emp_death)
     min_Yaxis=min(0,np.nanmin(resS[2]),np.nanmin(resE[2]),np.nanmin(emp_birth),np.nanmin(emp_death)) // 0.1 * 0.1

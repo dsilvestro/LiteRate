@@ -1,5 +1,9 @@
-library('ggplot2')
-library('gridExtra')
+usePackage <- function(p){
+if (!is.element(p, installed.packages()[,1]))
+install.packages(p, dep = TRUE)
+require(p, character.only = TRUE)}
+usePackage('ggplot2')
+usePackage('gridExtra')
 
 time=c(1968.5, 1969.5,1970.5,1971.5,1972.5,1973.5,1974.5,1975.5,1976.5,1977.5,1978.5,1979.5,1980.5,1981.5,1982.5,1983.5,1984.5,1985.5,1986.5,1987.5,1988.5,1989.5,1990.5,1991.5,1992.5,1993.5,1994.5,1995.5,1996.5,1997.5,1998.5,1999.5)
 net_diversity=c(1.0, 2.0,5.0,8.0,13.0,14.0,16.5,20.0,25.0,36.0,52.5,84.5,145.0,266.5,455.5,758.5,1130.0,1525.5,1937.0,2517.0,3081.5,3688.0,4345.5,5063.0,5889.5,6689.5,7471.5,8269.5,9044.0,9883.5,10914.0,12074.5)
@@ -39,4 +43,4 @@ div_plot<-ggplot(rates.dat,aes(time,net_diversity))+
       theme(legend.position = 'none')+
       labs(x='Time',y='Number of Lineages')
 fig<-grid.arrange(rate_plot,div_plot,nrow = 2,ncol=1)
-ggsave(file='./DDRate_plot.pdf', plot=fig)
+ggsave(file='./example_data/metal_bands/single_run/DD_Rate//DDRate_plot.pdf', plot=fig)

@@ -66,7 +66,9 @@ def ggplot_rates(vec_dict,out_path):
     y_min=min(np.nanmin(vec_dict['birth_minHPD']), np.nanmin(vec_dict['death_minHPD']),np.nanmin(vec_dict['emp_birth']),np.nanmin(vec_dict['emp_death']), 0 ) * 1.1 // 0.1 * 0.1
     y_max=max(np.nanmax(vec_dict['birth_maxHPD']), np.nanmax(vec_dict['death_maxHPD']),np.nanmax(vec_dict['emp_birth']),np.nanmax(vec_dict['emp_death']) ) * 1.1 // 0.1 * 0.1 
     out_str=''
-    out_str+="library('ggplot2')\nlibrary('gridExtra')\n"
+    #DISCOVERED ON THIS BLOG http://www.salemmarafi.com/code/install-r-package-automatically/
+    out_str+="usePackage <- function(p){\nif (!is.element(p, installed.packages()[,1]))\ninstall.packages(p, dep = TRUE)\nrequire(p, character.only = TRUE)}\n"
+    out_str+="usePackage('ggplot2')\nusePackage('gridExtra')\n"
     for v in vec_dict: out_str += print_R_vec('\n'+v,vec_dict[v])
     out_str+='\n\nrates.dat<-data.frame('+','.join(vec_dict.keys())+')\n'
     out_str+="\nrate_plot<-ggplot(rates.dat, aes(time,birth_rate)) +\n\
