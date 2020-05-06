@@ -92,7 +92,7 @@ def get_marginal_rates(f_name,start_age,end_age,nbins=0,burnin=0.2):
     if nbins==0:
         nbins = abs(int(end_age-start_age))
     post_rate=f.readlines()
-    bins_histogram = np.arange(end_age,start_age)
+    bins_histogram = np.arange(end_age,start_age+1)
     marginal_rates_list = []
     times_of_shift = []
 
@@ -158,7 +158,7 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
         out_str += "\nlines(time,log10({0}_rate), col = '{1}', lwd=2)".format(prefix,col)
 
     # add barplot rate shifts
-    bins_histogram = np.arange(max_age,min_age)
+    bins_histogram = np.arange(max_age,min_age+1)
     if len(res[4])>1: # rate shift sampled at least once
         h = np.histogram(res[4],bins =bins_histogram) #,density=1)
     else:

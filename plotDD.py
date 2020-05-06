@@ -6,19 +6,9 @@ import pandas as pd
 import glob
 from literate_library import print_R_vec, calcHPD, parse_ts_te, core_arguments, create_bins
 
-p= core_arguments()
-p.add_argument('input_dir', type=str, default='.', help="directory of DDRate logs")
-p.add_argument('-o', nargs='?', type=argparse.FileType('w'), default=sys.stdout)
-p.add_argument('-head',type=int,help="Header?",default=1,metavar=1)
-p.add_argument('-combine', metavar='0',type=int,help="Whether log files should be combined before plotting or plotted serially")
-p.add_argument('-burnin', metavar='.2',type=float,help='set as a fraction',default=.2)
-
-args=p.parse_args()
-if args.head==True: head=0
-else: head=None
 
 #parse input and log file to put together vectors of interest
-def make_vec_dict(input_file):
+def make_vec_dict(input_file,head,ORIGIN,PRESENT,N_SPEC,N_EXTI,DT):
     vec_dict={}
 
     vec_dict['time']=np.arange(ORIGIN,PRESENT-1)+.5
@@ -68,6 +58,11 @@ def make_vec_dict(input_file):
 
         
 def ggplot_rates(vec_dict,out_path):
+    #DEAL WITH THIS ANNOYING GGPLOT BUG
+    
+    rplots=True
+    if os.path.exists('Rplots.pdf') is False: rplots=False
+    
     y_min=min(np.nanmin(vec_dict['birth_minHPD']), np.nanmin(vec_dict['death_minHPD']),np.nanmin(vec_dict['emp_birth']),np.nanmin(vec_dict['emp_death']), 0 ) * 1.1 // 0.1 * 0.1
     y_max=max(np.nanmax(vec_dict['birth_maxHPD']), np.nanmax(vec_dict['death_maxHPD']),np.nanmax(vec_dict['emp_birth']),np.nanmax(vec_dict['emp_death']) ) * 1.1 // 0.1 * 0.1 
     out_str=''
@@ -96,10 +91,11 @@ def ggplot_rates(vec_dict,out_path):
       labs(x='Time',y='Number of Lineages')\n"
     out_str+="fig<-grid.arrange(rate_plot,div_plot,nrow = 2,ncol=1)\n"
     out_str+="ggsave(file='{0}/DDRate_plot.pdf', plot=fig)\n".format(out_path)
-    
     if out_path[-1]=='/': out_path=out_path[:-1]
     with open(out_path+'/DDRate_plot.r','w') as f: f.write(out_str)
     os.system("Rscript "+out_path+'/DDRate_plot.r')
+    if os.path.exists('Rplots.pdf') and rplots==False:
+        os.remove('Rplots.pdf')
     
 def combine_logs(mcmc_files, wd, burnin_pct):
     #MCMC (w/header)
@@ -118,16 +114,29 @@ def combine_logs(mcmc_files, wd, burnin_pct):
             l=l.split('\t')
             l[0]=str(i)
             o.write('\t'.join(l))
-direct="%s/*.log" % (args.input_dir) 
-files=glob.glob(direct)
-files.sort()
-if args.combine==1:
-    print("Combining directory to 1 log...\n")
-    combine_logs(files,args.input_dir,args.burnin)
-    files=[args.input_dir+'/COMBINED_mcmc.log']
+def __main__():
+    p= core_arguments()
+    p.add_argument('-log_dir','-l', type=str, default='.', help="directory of DDRate logs",required=True)
+    p.add_argument('-head',type=int,help="Header?",default=1,metavar=1)
+    p.add_argument('-combine', metavar='0',type=int,help="Whether log files should be combined before plotting or plotted serially")
+    p.add_argument('-burnin', metavar='.2',type=float,help='set as a fraction',default=.2)
 
-TS,TE,PRESENT,ORIGIN=parse_ts_te(args.d,args.TBP,args.first_year,args.last_year,args.death_jitter)
-ORIGIN, PRESENT, N_SPEC, N_EXTI, DT, N_TIME_BINS, TIME_RANGE=create_bins(ORIGIN, PRESENT,TS,TE,args.rm_first_bin)
+    args=p.parse_args()
+    if args.head==True: head=0
+    else: head=None
+    direct="%s/*.log" % (args.log_dir) 
+    log_files=glob.glob(direct)
+    log_files.sort()
+    log_files=[l for l in log_files if l.find('COMBINED_mcmc.log')==-1]
+    if args.combine==1:
+        print("Combining directory to 1 log...\n")
+        combine_logs(log_files,args.log_dir,args.burnin)
+        log_files=[args.log_dir+'/COMBINED_mcmc.log']
 
-vec_dict=make_vec_dict(files[0])
-ggplot_rates(vec_dict,args.input_dir)
+    TS,TE,PRESENT,ORIGIN=parse_ts_te(args.d,args.TBP,args.first_year,args.last_year,args.death_jitter)
+    ORIGIN, PRESENT, N_SPEC, N_EXTI, DT, N_TIME_BINS, TIME_RANGE=create_bins(ORIGIN, PRESENT,TS,TE,args.rm_first_bin)
+
+    vec_dict=make_vec_dict(log_files[0],head,ORIGIN,PRESENT,N_SPEC,N_EXTI,DT)
+    ggplot_rates(vec_dict,args.log_dir)
+
+__main__()
