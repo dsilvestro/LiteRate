@@ -92,7 +92,7 @@ def get_marginal_rates(f_name,start_age,end_age,nbins=0,burnin=0.2):
     if nbins==0:
         nbins = abs(int(end_age-start_age))
     post_rate=f.readlines()
-    bins_histogram = np.arange(end_age,start_age+1)
+    bins_histogram = np.arange(end_age,start_age)
     marginal_rates_list = []
     times_of_shift = []
 
@@ -112,7 +112,6 @@ def get_marginal_rates(f_name,start_age,end_age,nbins=0,burnin=0.2):
             h = np.histogram(shifts,bins =bins_histogram)[0]
             marginal_rates = rates[np.cumsum(h)][::-1]
 
-            #print rates, marginal_rates, shifts,bins_histogram
             #quit()
             times_of_shift += list(shifts)
 
@@ -158,7 +157,7 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
         out_str += "\nlines(time,log10({0}_rate), col = '{1}', lwd=2)".format(prefix,col)
 
     # add barplot rate shifts
-    bins_histogram = np.arange(max_age,min_age+1)
+    bins_histogram = np.arange(max_age,min_age)
     if len(res[4])>1: # rate shift sampled at least once
         h = np.histogram(res[4],bins =bins_histogram) #,density=1)
     else:
@@ -211,16 +210,16 @@ def pretty_ggplot(resS,resE,div_log):
     geom_ribbon(aes_string(ymin=death_minHPD,ymax=death_maxHPD,fill=shQuote('blue')),alpha=.2,col=NA)+\n\
     geom_line(aes(time,emp_birth,col='eb'),size=.5,linetype = 'dashed')+\n\
     geom_line(aes(time,emp_death,col='ed'),size=.5,linetype = 'dashed')+\n\
-    geom_point(aes(time,birth_BF2), size = 4, alpha=1,col='yellow') +\n\
-    geom_point(aes(time,birth_BF6), size = 8, alpha=1,col='yellow') +\n\
-    geom_point(aes(time,death_BF2), size = 4, alpha=1,col='yellow') +\n\
-    geom_point(aes(time,death_BF6), size = 8, alpha=1,col='yellow') +\n\
+    geom_point(aes(time,birth_BF2), size = 1, alpha=1,col='yellow') +\n\
+    geom_point(aes(time,birth_BF6), size = 2, alpha=1,col='yellow') +\n\
+    geom_point(aes(time,death_BF2), size = 1, alpha=1,col='yellow') +\n\
+    geom_point(aes(time,death_BF6), size = 2, alpha=1,col='yellow') +\n\
     theme(legend.position = 'none')+\n\
     labs(x='Time',y='Rates')\n\n\n".format(min_Yaxis,max_Yaxis)
     
     return out_str
 
-def plot_net_rate(resS,resE,col,min_age,max_age,plot_title,burnin=.2):
+def plot_net_rate(resS,resE,col,min_age,max_age,nbins,plot_title,burnin=.2):
     #computes and plots net RATES
     resS_marginal_rate = resS[6]
     resE_marginal_rate = resE[6]
@@ -229,7 +228,6 @@ def plot_net_rate(resS,resE,col,min_age,max_age,plot_title,burnin=.2):
     marginal_rates_list	= resS_marginal_rate[0:max_indx,:] - resE_marginal_rate[0:max_indx,:]
     mean_rates= np.mean(marginal_rates_list,axis=0)
     min_rates,max_rates=[],[]
-    nbins = abs(int(max_age-min_age))
     for i in range(nbins):
         hpd = calcHPD(marginal_rates_list[:,i],0.95)
         min_rates += [hpd[0]]
@@ -390,7 +388,7 @@ def plot_marginal_rates(path_dir,name_tag="",bin_size=1.,burnin=0.2,min_age=0,ma
             resE = get_marginal_rates(f_name,min_age_t,max_age_t,nbins,burnin=burnin)
 
             #net rate
-            r_str += plot_net_rate(resS,resE,col=colors[2],min_age=min_age_t,max_age=max_age_t,plot_title='')
+            r_str += plot_net_rate(resS,resE,col=colors[2],min_age=min_age_t,max_age=max_age_t,nbins=nbins,plot_title='')
 
             #ex rates
             r_str += get_K_values(tbl,head,colors[1],"m",burnin=burnin)

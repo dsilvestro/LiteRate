@@ -112,7 +112,7 @@ def get_marginal_rates(f_name,start_age,end_age,nbins=0,burnin=0.2):
             h = np.histogram(shifts,bins =bins_histogram)[0]
             marginal_rates = rates[np.cumsum(h)][::-1]
 
-            #print rates, marginal_rates, shifts,bins_histogram
+            print(shifts,bins_histogram)
             #quit()
             times_of_shift += list(shifts)
 
