@@ -12,7 +12,8 @@ Gjesfjeld, Erik, Daniele Silvestro, Jonathan Chang, Bernard Koch, Jacob G. Foste
 Koch, Bernard, Daniele Silvestro, and Jacob G. Foster. n.d. “The Evolutionary Dynamics of Cultural Change (as Told Through the Birth and Brutal, Blackened Death of Metal Music).” SocArXiv. [https://osf.io/preprints/socarxiv/659bt](https://osf.io/preprints/socarxiv/659bt).
 
 # Tutorials
-Detailed tutorials demonstrating the use of the software package are available [here](link to PDFs of the course).
+Detailed tutorials (ipython notebooks) demonstrating the use of the software package will soon be available [here](http://www.dysoc.org/cesmodules/). In the meantime, you can read draft PDFs of each tutorial in the repository:
+
 
 ### Requirements
 LiteRate is written in Python v.3 and requires 
