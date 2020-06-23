@@ -13,7 +13,7 @@ To learn more about methods or if you use these models in published work, please
 
 Gjesfjeld, Erik, Daniele Silvestro, Jonathan Chang, Bernard Koch, Jacob G. Foster, and Michael E. Alfaro. ‘A Quantitative Workflow for Modeling Diversification in Material Culture’. PLOS ONE 15, no. 2 (6 February 2020): e0227579. https://doi.org/10.1371/journal.pone.0227579.
 
-Koch, Bernard, Daniele Silvestro, and Jacob G. Foster. n.d. “The Evolutionary Dynamics of Cultural Change (as Told Through the Birth and Brutal, Blackened Death of Metal Music).” SocArXiv. [https://osf.io/preprints/socarxiv/659bt](https://osf.io/preprints/socarxiv/659bt).
+Koch, Bernard, Daniele Silvestro, and Jacob G. Foster. n.d. “The Evolutionary Dynamics of Cultural Change (as Told Through the Birth and Brutal, Blackened Death of Metal Music).” SocArXiv. [https://doi.org/10.31235/osf.io/659bt10.31235/osf.io/659bt](https://doi.org/10.31235/osf.io/659bt10.31235/osf.io/659bt).
 
 # Tutorials
 Detailed tutorials (ipython notebooks) demonstrating the use of the software package will soon be available [here](http://www.dysoc.org/cesmodules/). In the meantime, you can read draft PDFs of each tutorial in the repository:
