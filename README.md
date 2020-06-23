@@ -18,7 +18,7 @@ Detailed tutorials (ipython notebooks) demonstrating the use of the software pac
 - [Diversity and Diversification](https://github.com/dsilvestro/LiteRate/raw/master/other/1_Diversity%20and%20Diversification.pdf)
 - [Introduction to LiteRate](https://github.com/dsilvestro/LiteRate/raw/master/other/2_Introduction_to_LiteRate.pdf)
 - [Interpreting LiteRate Results](https://github.com/dsilvestro/LiteRate/raw/master/other/3_Interpreting_LiteRate_Results.pdf)
-- [Modeling Evolutionary Mechanisms](https://github.com/dsilvestro/LiteRate/raw/master/other/4_Modeling_Evolutionary_Mechanisms_in_Diversification_Rates.pdf)
+- [Modeling Evolutionary Mechanisms](https://github.com/dsilvestro/LiteRate/raw/master/other/4_Modeling_Evolutionary__Mechanisms_in_Diversification_Rates.pdf)
 - [Cultural Phylogenies](https://github.com/dsilvestro/LiteRate/raw/master/other/S1_Cultural_Phylogenies.pdf) (supplemental)
 
 
