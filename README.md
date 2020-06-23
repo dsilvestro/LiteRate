@@ -15,7 +15,7 @@ Koch, Bernard, Daniele Silvestro, and Jacob G. Foster. n.d. “The Evolutionary 
 Detailed tutorials (ipython notebooks) demonstrating the use of the software package will soon be available [here](http://www.dysoc.org/cesmodules/). In the meantime, you can read draft PDFs of each tutorial in the repository:
 
 - [Introduction](https://github.com/dsilvestro/LiteRate/raw/master/other/0_Introduction_Tutorial.pdf)
-- [Diversity and Diversification](https://github.com/dsilvestro/LiteRate/raw/master/other/1_Diversity\ and\ Diversification.pdf)
+- [Diversity and Diversification](https://github.com/dsilvestro/LiteRate/raw/master/other/1_Diversity%20and%20Diversification.pdf)
 - [Introduction to LiteRate](https://github.com/dsilvestro/LiteRate/raw/master/other/2_Introduction_to_LiteRate.pdf)
 - [Interpreting LiteRate Results](https://github.com/dsilvestro/LiteRate/raw/master/other/3_Interpreting_LiteRate_Results.pdf)
 - [Modeling Evolutionary Mechanisms](https://github.com/dsilvestro/LiteRate/raw/master/other/4_Modeling_Evolutionary_Mechanisms_in_Diversification_Rates.pdf)
