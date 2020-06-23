@@ -1,21 +1,16 @@
 # LiteRate
-Fast estimation of birth and death rates from large data setusing reversible jump MCMC
+LiteRate is a program implementing birth-death models within a Bayesian framework to estimates diversification dynamics from cultural data.
 
-Modified code from [PyRate](https://github.com/dsilvestro/PyRate) designed for Cultural diversification
+The main methods are described in [Gjesfjeld et al. 2020](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0227579), [Silvestro et al. 2019](https://doi.org/10.1017/pab.2019.23), and [Koch et al. in prep](link). 
 
-# Logistic Niche Growth Model
+Detailed tutorials demonstrating the use of the software package are available [here](link to PDFs of the course).
 
-Nested model where birth and death rates are a function of diversity and the growth of a niche through a logistic curve
+### Requirements
+LiteRate is written in Python v.3 and requires 
+the libraries numpy and scipy. 
+Source files and installers are available [here](https://numpy.org) and [here](https://scipy.org). 
 
-# SimulateRate
+Alternatively, you can download the requirements.txt file and use `pip install -r requirements.txt` to install them from the terminal (UNIX systems). Note that if Python v.2 is the default version of Python in your machine you might need to use `python3` to launch the program and `pip3` to install the required libraries. 
 
-Simulator for birth death rates under different processes. Currently written for logistic niche growth but adaptable. Also simple set up for approximate Bayesian computation.
 
-### multi-trait extinction model (MTE)
-example input file: `example_data/Example_multiDiscreteTraitDep.txt`
 
-Run analysis:
-`python MTEmodel.py -d example_data/Example_multiDiscreteTraitDep.txt -t0 23 -t1 8`
-where `t0` and `t1` specify the boundaries of the time window of interest. If not specified the entire dataset will be analyzed.
-
-To plot the results use `plot_MTE_results.R`
