@@ -2,7 +2,7 @@
 LiteRate is a program implementing birth-death models within a Bayesian framework to estimates diversification dynamics from cultural occurence data. The model detects statistically-significant rate shifts in the history of the cultural population that theoretically correspond with major historical events and/or the action of evolutionary processes. 
 
 <figure align="center">
-<img src="https://drive.google.com/uc?id=1JWRXvwaRRod2OpjaNO9DPxp1Q_zhhZlj" alt="" width="500" height="700" border="0">
+<img src="https://github.com/dsilvestro/LiteRate/raw/master/other/Figure_3.png" alt="" width="250" height="350" border="0">
 </figure>
 
 # Restricted Models
