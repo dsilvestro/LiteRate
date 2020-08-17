@@ -174,6 +174,9 @@ def prior_norm(x,loc=0,scale=1):
 def prior_sym_beta(x,a): 
 	return scipy.stats.beta.logpdf(x, a,a)
 
+def prior_beta(x,a,b): 
+	return scipy.stats.beta.logpdf(x, a,b)
+
 ####SET UP STUFF####			
 def parse_ts_te(input_file,TBP,first_year,last_year,death_jitter):
 	t_file=np.genfromtxt(input_file, skip_header=1)
