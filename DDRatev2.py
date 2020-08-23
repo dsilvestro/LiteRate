@@ -67,7 +67,7 @@ def get_brates(rate_f,rate_mul,niche_frac):
     return(rate)
 
 def get_drates(rate_f,rate_mul,niche_frac):
-    rate_min=rate_f-rate_f*np.exp(rate_mul)
+    rate_min=rate_f-rate_f*rate_mul
     rate =  rate_min + (rate_f-rate_min)*niche_frac
     rate[rate<=0] = SMALL_NUMBER #no negative birth rates
     return(rate)
@@ -76,7 +76,7 @@ def likelihood_function(args):
     [l_f, l_mul,  k, x0,     div_0,   L,  m_mul, nuB, nuD] = args
 
     if M_BIRTH==0:
-        birth_rates = np.ones(N_TIME_BINS)*l_mul
+        birth_rates = np.ones(N_TIME_BINS)*l_f*np.exp(l_mul)
         niche = np.ones(N_TIME_BINS)
         niche_frac = np.ones(N_TIME_BINS)
     elif M_BIRTH==1:
@@ -91,7 +91,7 @@ def likelihood_function(args):
     #print(niche)
 
     if M_DEATH <=0:    
-        death_rates = np.ones(N_TIME_BINS)*m_mul
+        death_rates = np.ones(N_TIME_BINS)*l_f
         #niche = np.ones(N_TIME_BINS)
         #niche_frac = np.ones(N_TIME_BINS)
     elif M_DEATH ==1:
@@ -115,14 +115,14 @@ def calc_prior(args):
     #argsA=np.array([l_f,  l_mul,  k, x0,     div_0,   L,  m_mul, nuB, nuD])
     p = prior_gamma(args[0],a=1,s=10,l=0) #l_f
     p += prior_gamma(args[1],a=1,s=1,l=1) #l_mul
-    p += prior_beta(np.exp(args[6]),a=1,b=1.2) #M_mul
+    p += prior_beta(args[6],a=1,b=1.2) #M_mul
     p += prior_norm(args[2]) #k
     p += prior_gamma(args[4],a=1,s=PRIOR_K0_L,l=0) #div_0
     p += prior_gamma(args[5],a=1,s=PRIOR_K0_L,l=0) #L
-    p += prior_norm(args[7],0,2) #nuB
-    p += prior_norm(args[8],0,2) #nuD
-
-    if ORIGIN + args[3]>= PRESENT: p = -np.inf #if midpoint greater than present: fail
+    p += prior_gamma(args[7],a=2,s=.5,l=0) #nuB
+    p += prior_gamma(args[8],a=2,s=.5,l=0) #nuD
+    if ORIGIN + args[3]>= PRESENT:
+        p = -np.inf #if midpoint greater than present: fail
     return p
     
 def __main__(parsed_args):    
@@ -174,13 +174,13 @@ def __main__(parsed_args):
     #constant birth and death
     if M_BIRTH==0 and M_DEATH<=0:
         #argsA=             np.array([l_f,l_max,  k,    x0,     div_0,   L,     m_max, nuB, nuD])
-        update_multiplier = np.array([0,  1,  0,  0,  0,  0,  1,  0,  0]) #we wont update l_f and just let multipliers figure it out
+        update_multiplier = np.array([1,  1,  0,  0,  0,  0,  0,  0,  0]) #we wont update l_f and just let multipliers figure it out
     elif M_BIRTH==2 or M_DEATH==2:
         #argsA=np.array([l_f,  l_mul,  k, x0,     div_0,   L,  m_mul, nuB, nuD])
-        update_multiplier = np.array([1,  1,  1,  0,  1,  1,  0,  0,  0])   
+        update_multiplier = np.array([1,  1,  1,  0,  1,  1,  0,  1,  1])   
     else:
         #argsA=np.array([l_f,  l_mul,  k, x0,     div_0,   L,  m_mul, nuB, nuD])
-        update_multiplier = np.array([1,  1,  0,  0,  0,  1,  0,  0,  0])   
+        update_multiplier = np.array([1,  1,  0,  0,  0,  1,  0,  1,  1])   
 
     if M_DEATH== -1: # [DS: I need to fix this]
         #argsA=             np.array([l_max, k, x0,   div_0,   L,     m_max, nu])
@@ -213,13 +213,12 @@ def __main__(parsed_args):
             if rr[2]<.5:
                 res[3] = update_sliding_win(res[3], m=0, M=PRESENT, d=1.5) #update midpoint (the only sliding window proposal)
             else:
-                res[6] = update_sliding_win(res[6], m=1, M=np.e, d=.05)
+                res[6] = update_sliding_win(res[6], m=0, M=1, d=.05)
             if M_DEATH== -1:
                 res[2] = update_normal_nobound(res[2], d=0.2) #update slope
             res = [res,0]
         else:
             res = update_multiplier_proposal_vec(args,d=1.1,f=update_multiplier) #update everything with multipliers
-    
         [args, hastings] = res
         lik_res = likelihood_function(args,)
         lik = np.sum(lik_res[0])
@@ -240,8 +239,7 @@ def __main__(parsed_args):
             argsO[3] += ORIGIN # right point in time
             argsO[5] += argsO[4] #true max is div_0 + L
             argsO[1] = np.exp(argsO[1])
-            argsO[6] = np.exp(argsO[6])
-            #print(iteration, likA, argsO) #, args
+            print(iteration, likA, argsO) #, args
             
             #compute adequacy stats
             adequacy=calculate_r_squared(B_EMP,D_EMP,birth_rates,death_rates)

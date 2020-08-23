@@ -126,6 +126,12 @@ def update_sliding_win(i, m=0, M=1, d=0.05):
 	if m==0: ii = abs(ii)
 	return ii
 
+def update_sliding_win_log(i, m=1, M=np.e, d=0.05): 
+	ii = i+(np.random.random()-.5)*d
+	if ii>M: ii=M-(ii-M)
+	elif ii<m: ii = m+(m-ii)
+	return ii
+
 def update_normal_nobound(i, d=0.05): 
 	ii = i+np.random.normal(0,d)
 	return ii
