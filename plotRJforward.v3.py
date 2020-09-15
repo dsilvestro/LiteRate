@@ -36,9 +36,14 @@ def print_R_vec(name,v):
             if isnan(v[j]): value="NA"
             new_v.append(value)
 
-        vec="%s=c(%s, " % (name,new_v[0])
+        if new_v.count("NA")==len(new_v):
+            vec="%s=as.numeric(c(%s, " % (name,new_v[0])
+        else:
+            vec="%s=c(%s, " % (name,new_v[0])
+            
         for j in range(1,len(v)-1): vec += "%s," % (new_v[j])
         vec += "%s)"  % (new_v[j+1])
+        if new_v.count("NA")==len(new_v): vec+=')'
     return vec
 
 

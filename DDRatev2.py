@@ -61,7 +61,7 @@ def get_const_K(x,L,div_0):
     return( np.ones(len(x))*(L+div_0) )
 
 def get_brates(rate_f,rate_mul,niche_frac):
-    rate_max=rate_f+rate_f*np.exp(rate_mul)
+    rate_max=rate_f+rate_f*rate_mul
     rate =  rate_max - (rate_max-rate_f)*niche_frac
     rate[rate<=0] = SMALL_NUMBER #no negative birth rates
     return(rate)
@@ -76,7 +76,7 @@ def likelihood_function(args):
     [l_f, l_mul,  k, x0,     div_0,   L,  m_mul, nuB, nuD] = args
 
     if M_BIRTH==0:
-        birth_rates = np.ones(N_TIME_BINS)*l_f*np.exp(l_mul)
+        birth_rates = np.ones(N_TIME_BINS)*l_f*l_mul
         niche = np.ones(N_TIME_BINS)
         niche_frac = np.ones(N_TIME_BINS)
     elif M_BIRTH==1:
@@ -91,7 +91,7 @@ def likelihood_function(args):
     #print(niche)
 
     if M_DEATH <=0:    
-        death_rates = np.ones(N_TIME_BINS)*l_f
+        death_rates = np.ones(N_TIME_BINS)
         #niche = np.ones(N_TIME_BINS)
         #niche_frac = np.ones(N_TIME_BINS)
     elif M_DEATH ==1:
@@ -114,13 +114,13 @@ def likelihood_function(args):
 def calc_prior(args):
     #argsA=np.array([l_f,  l_mul,  k, x0,     div_0,   L,  m_mul, nuB, nuD])
     p = prior_gamma(args[0],a=1,s=10,l=0) #l_f
-    p += prior_gamma(args[1],a=1,s=1,l=1) #l_mul
+    p += prior_gamma(args[1],a=1,s=1,l=0) #l_mul
     p += prior_beta(args[6],a=1,b=1.2) #M_mul
-    p += prior_norm(args[2]) #k
+    p += prior_gamma(args[2],a=1,s=10,l=0) #k
     p += prior_gamma(args[4],a=1,s=PRIOR_K0_L,l=0) #div_0
     p += prior_gamma(args[5],a=1,s=PRIOR_K0_L,l=0) #L
-    p += prior_gamma(args[7],a=2,s=.5,l=0) #nuB
-    p += prior_gamma(args[8],a=2,s=.5,l=0) #nuD
+    p += prior_gamma(args[7],a=3,s=.5,l=0) #nuB
+    p += prior_gamma(args[8],a=3,s=.5,l=0) #nuD
     if ORIGIN + args[3]>= PRESENT:
         p = -np.inf #if midpoint greater than present: fail
     return p
@@ -148,7 +148,16 @@ def __main__(parsed_args):
     head+=["corr_coeff","rsquared","gelman_r2"]
     wlog.writerow(head)
     
-    
+    outdiv= "%s_%s%s.div.log" % (os.path.splitext(parsed_args.d)[0], seed, out)
+    div_logfile = open(out_div , "w")
+
+    #write diversity. plotRj uses this
+    div_rows = zip(N_SPEC,N_EXTI,DT)
+    div_logfile.write('sp_events\tex_events\tbr_length\n')
+    writer = csv.writer(div_logfile,delimiter='\t')
+    for row in div_rows: 
+        writer.writerow(row)
+    div_logfile.close()
     
     
     
@@ -238,7 +247,6 @@ def __main__(parsed_args):
             argsO=deepcopy(argsA) #when you copy lists, makes sure you dont change things by reference
             argsO[3] += ORIGIN # right point in time
             argsO[5] += argsO[4] #true max is div_0 + L
-            argsO[1] = np.exp(argsO[1])
             print(iteration, likA, argsO) #, args
             
             #compute adequacy stats

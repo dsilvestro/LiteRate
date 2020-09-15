@@ -116,6 +116,16 @@ def combine_logs(mcmc_files, wd, burnin_pct):
             l=l.split('\t')
             l[0]=str(i)
             o.write('\t'.join(l))
+    '''
+    sp_events=[];ex_events=[];br_length=[]
+    for file_name in mcmc_files:
+        file_name=file_name.replace('mcmc.log','div.log')
+        div=np.loadtxt(file_name,skiprows=1)
+        sp_events.append(div[:,0]);ex_events.append(div[:,1]);br_length.append(div[:,2])
+    sp_events=np.mean(np.array(sp_events),axis=0);ex_events=np.mean(np.array(ex_events),axis=0);br_length=np.mean(np.array(br_length),axis=0)
+    combined_div=pd.DataFrame({'sp_events':sp_events,'ex_events':ex_events,'br_length':br_length})
+    combined_div[['sp_events','ex_events','br_length']].to_csv(wd+'/COMBINED_div.log',sep='\t',index=False)
+    '''
 def __main__():
     p= core_arguments()
     p.add_argument('-log_dir','-l', type=str, default='.', help="directory of DDRate logs",required=True)
