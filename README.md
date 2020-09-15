@@ -33,7 +33,7 @@ This tutorial shows users how to check the convergence of LiteRate's Markov chai
  ### [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1bvkNKU_SIX2dZ9nzNmzkeFOtE5Vjm8-_) 4. Modeling Evolutionary Mechanisms in Diversification Rates
 In this tutorial we expand our simulator to model evolutionary mechanisms within diversification rates like significant extinctions, key innovations, and competition. We describe how to translate simulations to statistical models, and apply a competition model to the Metal data.
  
-### [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1x5Y_5a3glAYF4mU0WGz1BHkgpPiSjCbo) BONUS. Cultural Phylogenies.
+### [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1x5Y_5a3glAYF4mU0WGz1BHkgpPiSjCbo) Bonus. Cultural Phylogenies.
 This supplemental tutuorial examines the concepts and methods behind the use of phylogenetic approaches. It shows users the types of questions addressable using phylogenies, explains how phylogenies are constructed, and contrasts this approach to diversifcation rate analysis. Empirically, we demonstrate some phylogenetic analyses on a dataset of Austronesia languages (Gray, Drummond and Greenhill 2009). 
 
 # Problems/Questions
