@@ -27,7 +27,7 @@ Detailed tutorials explaining the theory and how to use the models are [here](ht
 ### [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://drive.google.com/file/d/16fiaQkQo6Ng7N4YZsBoj3VVEA8HPfPKh/view?usp=sharing) 2. Introduction to Birth-Death Processes and LiteRate.
   In this tutorial we introduce the linear birth-death process as a statistical model for cutting through stochasticity in diversification rates. We also introduce LiteRate, an unsupervised machine-learning algorithm built on birth-death processes designed to identify statistically-signifcant shifts in diversification rates (Silvestro et al., 2019). Finally, we show users how to run LiteRate on their own data. Empirically, the module introduces the diversification of Metal bands active from 1968-2000 as a means to understand the history of the Metal music genre.
 
-### [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/16fiaQkQo6Ng7N4YZsBoj3VVEA8HPfPKh) 3. Interpreting LiteRate Results.
+### [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1BjltkRQioDaSgLZeDQqhrDB7JC23LUbj) 3. Interpreting LiteRate Results.
 This tutorial shows users how to check the convergence of LiteRate's Markov chain Monte Carlo algorithms, as well as how to plot LiteRate results. Empirically, we show how shifts in diversification rates delineate a multi-stage trajectory for the evolution of Metal music over time.
  
  ### [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1bvkNKU_SIX2dZ9nzNmzkeFOtE5Vjm8-_) 4. Modeling Evolutionary Mechanisms in Diversification Rates
