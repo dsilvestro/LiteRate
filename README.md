@@ -16,7 +16,7 @@ Gjesfjeld, Erik, Daniele Silvestro, Jonathan Chang, Bernard Koch, Jacob G. Foste
 Koch, Bernard, Daniele Silvestro, and Jacob G. Foster. n.d. “The Evolutionary Dynamics of Cultural Change (as Told Through the Birth and Brutal, Blackened Death of Metal Music).” SocArXiv. [https://doi.org/10.31235/osf.io/659bt](https://doi.org/10.31235/osf.io/659bt).
 
 # Tutorials
-Detailed tutorials explaining the theory and how to use the models are [here](http://www.dysoc.org/cesmodules/diversification_module/) (thanks Templeton Foundation, Cultural Evolution Society, and DySoc!). If you're lazy the tutorials are linked below:
+Detailed tutorials explaining the theory and how to use the models are [here](http://www.dysoc.org/cesmodules/diversification_module/) (thanks John Templeton Foundation, Cultural Evolution Society, and National Institute for Mathematical and Biological Synthesis!). If you're lazy the tutorials are linked below:
 
 ### [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1_NkXwCDJ5EShuQj3-oEt7jjm1fw2sZXw) Introduction 
   The introduction discusses biological macroevolution and how it motivates cultural macroevolution; highlights questions approachable from a cultural macroevolutionary perspective;    introduces macroevolutionary methods that will be applied in future modules; and lays out the structure of these tutorials.
