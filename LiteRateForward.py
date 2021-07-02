@@ -321,21 +321,43 @@ def runMCMC(arg):
 		if iteration % s_freq ==0:
 			# MCMC log
 			#compute adequacy stats
-			if calc_adequacy:
-				adequacy=calculate_r_squared(B_EMP,D_EMP,L_acc[indLA],M_acc[indMA])
-				log_state = map(str,[iteration,likA+priorA,likA,priorA,mean(L_acc),mean(M_acc),len(L_acc),len(M_acc),start_time,end_time] + Gamma_rate + [Poi_lambda_rjHP] + list(adequacy) )
+			if pyrate_output:
+				l_res = [iteration,likA+priorA,likA,priorA,mean(L_acc),mean(M_acc),
+							len(L_acc),len(M_acc),true_root_age,true_root_age-np.max(timesLA)]
+				if calc_adequacy:
+					adequacy=calculate_r_squared(B_EMP,D_EMP,L_acc[indLA],M_acc[indMA])
+					log_state = map(str, l_res + Gamma_rate + [Poi_lambda_rjHP] + list(adequacy) )
+				else:
+					adequacy = [0]
+					log_state = map(str,l_res + Gamma_rate + [Poi_lambda_rjHP] )
+				mcmc_logfile.write('\t'.join(log_state)+'\n')
+				mcmc_logfile.flush()
+				# log marginal rates/times
+				log_state = map(str,list(L_acc) + list(true_root_age-timesLA[1:len(timesLA)-1]))
+				sp_logfile.write('\t'.join(log_state)+'\n')
+				sp_logfile.flush()
+				log_state = map(str,list(M_acc) + list(true_root_age-timesMA[1:len(timesMA)-1]))
+				ex_logfile.write('\t'.join(log_state)+'\n')
+				ex_logfile.flush()
 			else:
-				adequacy = [0]
-				log_state = map(str,[iteration,likA+priorA,likA,priorA,mean(L_acc),mean(M_acc),len(L_acc),len(M_acc),start_time,end_time] + Gamma_rate + [Poi_lambda_rjHP] )
-			mcmc_logfile.write('\t'.join(log_state)+'\n')
-			mcmc_logfile.flush()
-			# log marginal rates/times
-			log_state = map(str,list(L_acc) + list(timesLA[1:len(timesLA)-1]))
-			sp_logfile.write('\t'.join(log_state)+'\n')
-			sp_logfile.flush()
-			log_state = map(str,list(M_acc) + list(timesMA[1:len(timesMA)-1]))
-			ex_logfile.write('\t'.join(log_state)+'\n')
-			ex_logfile.flush()
+				l_res = [iteration,likA+priorA,likA,priorA,mean(L_acc),mean(M_acc),
+							len(L_acc),len(M_acc),start_time,end_time]
+				if calc_adequacy:
+					adequacy=calculate_r_squared(B_EMP,D_EMP,L_acc[indLA],M_acc[indMA])
+					log_state = map(str, l_res + Gamma_rate + [Poi_lambda_rjHP] + list(adequacy) )
+				else:
+					adequacy = [0]
+					log_state = map(str,l_res + Gamma_rate + [Poi_lambda_rjHP] )
+				mcmc_logfile.write('\t'.join(log_state)+'\n')
+				mcmc_logfile.flush()
+				# log marginal rates/times
+				log_state = map(str,list(L_acc) + list(timesLA[1:len(timesLA)-1]))
+				sp_logfile.write('\t'.join(log_state)+'\n')
+				sp_logfile.flush()
+				log_state = map(str,list(M_acc) + list(timesMA[1:len(timesMA)-1]))
+				ex_logfile.write('\t'.join(log_state)+'\n')
+				ex_logfile.flush()
+				
 		
 		if iteration % p_freq ==0:
 			print(iteration, likA, priorA)
@@ -365,6 +387,7 @@ p.add_argument('-const_rates',    type=int, help="set to: 1 for constant B/I and
 p.add_argument('-const_death_rate',    type=int, help="set to: 1 for constant D rates" , default= 0, metavar= 0)
 p.add_argument('-model_BDI',      type=int, help='0: birth-death; 1: immigration-death; 2 birth-death (Keiding likelihood); 3 Keiding likelihood, only no extant', default= 0, metavar= 0)
 p.add_argument('-TBP', help='Default is AD. Include for TBP.', default=False, action='store_true')
+p.add_argument('-pyrate_output', help='Make output PyRate-compatible', default=False, action='store_true')
 p.add_argument('-first_year',    type=int, help='This is a convenience function if you would like to specify a different start to your dataset. Unspecified for TBP.', default= -1, metavar= -1)
 p.add_argument('-last_year',    type=int, help='This is a convenience function if you would like to specify a different end to your dataset. Unspecified for TBP.', default= -1, metavar= -1)
 p.add_argument('-death_jitter', type=float, help="""Determines the amount to jitter death times.\
@@ -415,21 +438,23 @@ const_death_rate = args.const_death_rate
 f = args.d
 t_file=np.genfromtxt(f, skip_header=1)
 if t_file.shape[1]==4:
-    warn('Four column (with clade) LiteRate input is deprecated. Use three columns.', FutureWarning)
-    ts_years = t_file[:,2]
-    te_years = t_file[:,3]
+	warn('Four column (with clade) LiteRate input is deprecated. Use three columns.', FutureWarning)
+	ts_years = t_file[:,2]
+	te_years = t_file[:,3]
 else:
-    ts_years = t_file[:,1]
-    te_years = t_file[:,2]
+	ts_years = t_file[:,1]
+	te_years = t_file[:,2]
 
 if TBP==True:
-    ts= max(ts_years)-ts_years
-    te= max(ts_years)- te_years
+	true_root_age = np.max(ts_years)
+	ts= true_root_age - ts_years
+	te= true_root_age - te_years
 else:
-	if args.first_year!=-1:
+	true_root_age = 0
+	if args.first_year != -1:
 		ts_years=ts_years[ts_years>=args.first_year]
 		te_years=te_years[ts_years>=args.first_year]
-	if args.last_year!=-1:
+	if args.last_year != -1:
 		ts=ts_years[ts_years<=args.last_year]
 		te=te_years[ts_years<=args.last_year]
 		te[te>args.last_year]=args.last_year
@@ -440,8 +465,8 @@ else:
 #ts = ts - args.death_jitter
 te = te + args.death_jitter
 
-start_time = min(ts)
-end_time = max(te)
+start_time = np.min(ts)
+end_time = np.max(te)
 bins = np.arange(start_time,end_time+1)
 
 
@@ -559,5 +584,7 @@ min_allowed_t = 1   # minimum allowed distance between shifts (to avoid numerica
 Gamma_shape = 2.    # shape parameter of Gamma prior on B/D rates
 hpGamma_shape = 1.2 # shape par of Gamma hyperprior on rate of Gamma priors on B/D rates
 hpGamma_rate =  0.1 # rate par of Gamma hyperprior on rate of Gamma priors on B/D rates
+
+pyrate_output = args.pyrate_output
 
 runMCMC([L_acc,M_acc,timesLA,timesMA])
