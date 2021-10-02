@@ -18,6 +18,7 @@ import scipy.misc
 import random
 from scipy import stats
 from warnings import warn
+import pandas as pd
 ###LITERATE LIBRARY###
 
 ###LOG PARSING STUFF###
@@ -185,7 +186,7 @@ def prior_beta(x,a,b):
 
 ####SET UP STUFF####			
 def parse_ts_te(input_file,TBP,first_year,last_year,death_jitter):
-	t_file=np.genfromtxt(input_file, skip_header=1)
+	t_file=pd.read_csv(input_file, delimiter='\t').to_numpy()
 	if t_file.shape[1]==4:
 		warn('Four column (with clade) LiteRate input is deprecated. Use three columns.', FutureWarning)
 		ts_years = t_file[:,2]
