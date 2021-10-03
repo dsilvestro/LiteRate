@@ -15,6 +15,7 @@ from scipy.special import beta as f_beta
 import random as rand
 import csv
 import scipy.stats
+import pandas as pd
 from literate_library import *
 from copy import deepcopy
 np.set_printoptions(suppress=True)
@@ -34,11 +35,14 @@ p.add_argument('-trend_data', metavar='<path to trend file>', type=str,help='Inp
 p.add_argument('-trend_index', type=int,help='Column of trend in trend file.',default=0,metavar=0)
 p.add_argument('-const_B', type=bool, help='F) Vary rates with trend T) Constant rates', default=False,metavar=False)
 p.add_argument('-const_D', type=bool, help='F) Vary rates with trend T) Constant rates', default=False,metavar=False)
+p.add_argument('-no_death', type=bool, help='F) Calculate death rate T) Likelihood based on births only', default=False,metavar=False)
 
 args = p.parse_args()
 
+NO_DEATH=args.no_death
 CONST_BIRTH=args.const_B
-CONST_DEATH=args.const_D
+if NO_DEATH == True: CONST_DEATH=1
+else: CONST_DEATH=args.const_D
 
 seed = set_seed(args.seed)
 
@@ -52,8 +56,8 @@ SMALL_NUMBER = 0.000000000000001 #used for flooring rates
 
 
 def parse_trend_data(trend_file_path, index, rm_first_bin):
-    trend_matrix=t_file=np.genfromtxt(trend_file_path, skip_header=1)
-    trend=trend_matrix[:,index]
+    trend_matrix=t_file=pd.read_csv(trend_file_path, sep='\t')
+    trend=trend_matrix.iloc[:,index].to_numpy()
     trend=trend[:-1] #always drop last bin
     print("TREND",trend)
     if rm_first_bin:
@@ -89,17 +93,18 @@ def likelihood_function(args):
 def calc_prior(args):
     p = prior_gamma(args[0],a=1,s=10,l=.001) #l_min
     p += prior_gamma(args[1],a=1,s=10,l=.001) #m_min
-    p += prior_norm(args[2],loc=0,scale=5) #alpha
-    p += prior_norm(args[3],loc=0,scale=5) #beta
-    p += prior_gamma(args[4],loc=3,scale=.5) #delta
-    p += prior_gamma(args[5],loc=3,scale=.5) #gamma
+    p += prior_norm(args[2],l=0,s=5) #alpha
+    p += prior_norm(args[3],l=0,s=5) #beta
+    p += prior_gamma(args[4],a=3,l=0,s=.5) #delta
+    p += prior_gamma(args[5],a=3,l=0,s=.5) #gamma
     return p
 
 def __main__(parsed_args):
     out=""
     if CONST_BIRTH:out+="_CONB"
     else:out+="_EXPB"
-    if CONST_DEATH:out+="_COND"
+    if NO_DEATH: out+="_ND"
+    elif CONST_DEATH:out+="_COND"
     else: out+="_EXPD"
 
     outfile = "%s_%s%s_%s.trendrate.log" % (os.path.splitext(parsed_args.d)[0], seed, out,parsed_args.trend_index)
@@ -114,14 +119,24 @@ def __main__(parsed_args):
 
 
     #SETUP PROPOSALS
-    update_multiplier = np.array([1,  1,1,1, 1, 1]) #l_min, m_min, alpha, beta, delta, gamma
+    update_multiplier = np.array([1,  1,0,0, 1, 1]) #l_min, m_min, alpha, beta, delta, gamma
     if CONST_BIRTH==True:
-        update_multiplier[2]=0
+        update_multiplier[4]=0
     if CONST_DEATH==True:
-        update_multiplier[3]=0
-
+        update_multiplier[5]=0
     update_multiplier = update_multiplier/sum(update_multiplier)
 
+    update_normal = np.array([0,  0,1,1, 0, 0]) #l_min, m_min, alpha, beta, delta, gamma
+    if CONST_BIRTH==True:
+        update_normal[2]=0
+    if CONST_DEATH==True:
+        update_normal[3]=0
+    update_normal = update_normal/sum(update_normal)
+
+    
+    ###INITIAL VALUES###
+    l_min=.1
+    
     ###INITIAL VALUES###
     l_min=.1
     m_min=.1
@@ -148,11 +163,16 @@ def __main__(parsed_args):
         updated_ext = 0
         hastings= 0
         res = argsA+0
-        res = update_multiplier_proposal_vec(args,d=1.1,f=update_multiplier) #update everything with multipliers
+        rr=np.random.random(1)
+        if rr[0]<.33:
+            res = update_normal_nobound_vec(args,d=.001,f=update_normal)
+        else:
+            res = update_multiplier_proposal_vec(args,d=1.1,f=update_multiplier) #update everything with multipliers
         [args, hastings] = res
         lik_res = likelihood_function(args)
         lik = np.sum(lik_res[0])
         prior = calc_prior(args)
+        #print(lik,likA,prior,priorA,hastings)
         if (lik - likA) + (prior - priorA) + hastings > log(np.random.random()) or iteration==0:
             argsA = args
             priorA = prior

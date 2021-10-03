@@ -134,8 +134,16 @@ def update_sliding_win_log(i, m=1, M=np.e, d=0.05):
 	return ii
 
 def update_normal_nobound(i, d=0.05): 
-	ii = i+np.random.normal(0,d)
-	return ii
+        ii = i+np.random.normal(0,d)
+        return ii
+
+def update_normal_nobound_vec(i, d=0.05,f=.75): 
+	S=np.shape(i)
+	ff=np.random.binomial(1,f,S)
+	m=np.random.normal(0,d,S)
+	m[ff==0]=0.
+	ii = i+m
+	return ii, 0
 
 def update_poisson_proposal(kt):
 	ktp = np.random.poisson(kt)
@@ -175,8 +183,8 @@ def prior_gamma(x,a,s,l):
 	# mean = a*s
 	return scipy.stats.gamma.logpdf(x, a, scale=s,loc=l)
 
-def prior_norm(x,loc=0,scale=1):
-	return scipy.stats.norm.logpdf(x, loc, scale)
+def prior_norm(x,l=0,s=1):
+	return scipy.stats.norm.logpdf(x, loc=l, scale=s)
 
 def prior_sym_beta(x,a): 
 	return scipy.stats.beta.logpdf(x, a,a)
