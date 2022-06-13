@@ -194,35 +194,39 @@ def get_r_plot(res,col,parameter,min_age,max_age,plot_title,plot_log,run_simulat
 
 def pretty_ggplot(resS,resE,div_log):
     tbl=np.loadtxt(div_log, skiprows=1)
-    emp_birth=tbl[:,0]/tbl[:,2]; emp_birth[0]=None
-    emp_death=tbl[:,1]/tbl[:,2]; emp_death[0]=None
+    if np.min(tbl[:,2]) > 0:
+        emp_birth=tbl[:,0]/tbl[:,2]; emp_birth[0]=None
+        emp_death=tbl[:,1]/tbl[:,2]; emp_death[0]=None
     
-    out_str = "\n\n#PRETTY PLOT\n"
-    out_str+="usePackage <- function(p){\nif (!is.element(p, installed.packages()[,1]))\ninstall.packages(p, dep = TRUE)\nrequire(p, character.only = TRUE)}\n"
-    out_str+="usePackage('ggplot2')\n"
-    out_str += print_R_vec("\nemp_birth",emp_birth)
-    out_str += print_R_vec("\nemp_death",emp_death)
-    min_Yaxis=min(0,np.nanmin(resS[2]),np.nanmin(resE[2]),np.nanmin(emp_birth),np.nanmin(emp_death)) // 0.1 * 0.1
-    max_Yaxis=max(np.nanmax(resS[3]),np.nanmax(resE[3]),np.nanmax(emp_birth),np.nanmax(emp_death))*1.1 // 0.1 * 0.1
-    out_str+= "\nrates.dat=data.frame(time,emp_birth,emp_death,birth_rate,birth_minHPD,birth_maxHPD,birth_BF2,birth_BF6,death_minHPD,death_maxHPD,death_BF2,death_BF6)"
-    out_str+="\nggplot(rates.dat, aes(time,birth_rate)) +\n\
-    geom_line(size=.7,col='blue') +\n\
-    geom_line(aes(time,death_rate),col='red',size=.7) +\n \
-    scale_color_manual(values = c('blue','red')) +\n\
-    scale_x_continuous(breaks=seq(time[1]-time[1]%%-5,time[length(time)]-time[length(time)]%%-5,5),minor_breaks=seq(time[1]-time[1]%%-5,time[length(time)]-time[length(time)]%%-5,1)) +\n\
-    scale_y_continuous(breaks=seq({0},{1},.1),limits = c({0},{1})) + \n\
-    geom_ribbon(aes_string(ymin=birth_minHPD,ymax=birth_maxHPD,fill=shQuote('red')),alpha=.2,col=NA)+ \n\
-    geom_ribbon(aes_string(ymin=death_minHPD,ymax=death_maxHPD,fill=shQuote('blue')),alpha=.2,col=NA)+\n\
-    geom_line(aes(time,emp_birth,col='eb'),size=.5,linetype = 'dashed')+\n\
-    geom_line(aes(time,emp_death,col='ed'),size=.5,linetype = 'dashed')+\n\
-    geom_point(aes(time,birth_BF2), size = 1, alpha=1,col='yellow') +\n\
-    geom_point(aes(time,birth_BF6), size = 2, alpha=1,col='yellow') +\n\
-    geom_point(aes(time,death_BF2), size = 1, alpha=1,col='yellow') +\n\
-    geom_point(aes(time,death_BF6), size = 2, alpha=1,col='yellow') +\n\
-    theme(legend.position = 'none')+\n\
-    labs(x='Time',y='Rates')\n\n\n".format(min_Yaxis,max_Yaxis)
     
-    return out_str
+        out_str = "\n\n#PRETTY PLOT\n"
+        out_str+="usePackage <- function(p){\nif (!is.element(p, installed.packages()[,1]))\ninstall.packages(p, dep = TRUE)\nrequire(p, character.only = TRUE)}\n"
+        out_str+="usePackage('ggplot2')\n"
+        out_str += print_R_vec("\nemp_birth",emp_birth)
+        out_str += print_R_vec("\nemp_death",emp_death)
+        min_Yaxis=min(0,np.nanmin(resS[2]),np.nanmin(resE[2]),np.nanmin(emp_birth),np.nanmin(emp_death)) // 0.1 * 0.1
+        max_Yaxis=max(np.nanmax(resS[3]),np.nanmax(resE[3]),np.nanmax(emp_birth),np.nanmax(emp_death))*1.1 // 0.1 * 0.1
+        out_str+= "\nrates.dat=data.frame(time,emp_birth,emp_death,birth_rate,birth_minHPD,birth_maxHPD,birth_BF2,birth_BF6,death_minHPD,death_maxHPD,death_BF2,death_BF6)"
+        out_str+="\nggplot(rates.dat, aes(time,birth_rate)) +\n\
+        geom_line(size=.7,col='blue') +\n\
+        geom_line(aes(time,death_rate),col='red',size=.7) +\n \
+        scale_color_manual(values = c('blue','red')) +\n\
+        scale_x_continuous(breaks=seq(time[1]-time[1]%%-5,time[length(time)]-time[length(time)]%%-5,5),minor_breaks=seq(time[1]-time[1]%%-5,time[length(time)]-time[length(time)]%%-5,1)) +\n\
+        scale_y_continuous(breaks=seq({0},{1},.1),limits = c({0},{1})) + \n\
+        geom_ribbon(aes_string(ymin=birth_minHPD,ymax=birth_maxHPD,fill=shQuote('red')),alpha=.2,col=NA)+ \n\
+        geom_ribbon(aes_string(ymin=death_minHPD,ymax=death_maxHPD,fill=shQuote('blue')),alpha=.2,col=NA)+\n\
+        geom_line(aes(time,emp_birth,col='eb'),size=.5,linetype = 'dashed')+\n\
+        geom_line(aes(time,emp_death,col='ed'),size=.5,linetype = 'dashed')+\n\
+        geom_point(aes(time,birth_BF2), size = 1, alpha=1,col='yellow') +\n\
+        geom_point(aes(time,birth_BF6), size = 2, alpha=1,col='yellow') +\n\
+        geom_point(aes(time,death_BF2), size = 1, alpha=1,col='yellow') +\n\
+        geom_point(aes(time,death_BF6), size = 2, alpha=1,col='yellow') +\n\
+        theme(legend.position = 'none')+\n\
+        labs(x='Time',y='Rates')\n\n\n".format(min_Yaxis,max_Yaxis)
+    
+        return out_str
+    else:
+        return ""
 
 def plot_net_rate(resS,resE,col,min_age,max_age,nbins,plot_title,burnin=.2):
     #computes and plots net RATES
