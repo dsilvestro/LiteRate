@@ -398,6 +398,7 @@ p.add_argument('-rm_first_bin',   type=float, help='if set to 1 it removes the f
 p.add_argument('-calc_adequacy',   type=int, help='if set to 1 calculates and log to file adequacy', default= 1, metavar= 1)
 p.add_argument('-update_fraction',   type=float, help='', default= 0.75, metavar= 0.75)
 p.add_argument('-out',       type=str, help='data file', default="", metavar="") 
+p.add_argument('-rev_se',       type=int, help='reversed order of ts and te in input file', default=0, metavar=0) 
 
 args = p.parse_args()
 
@@ -442,8 +443,12 @@ if t_file.shape[1]==4:
 	ts_years = t_file[:,2]
 	te_years = t_file[:,3]
 else:
-	ts_years = t_file[:,1]
-	te_years = t_file[:,2]
+    if args.rev_se:
+    	ts_years = t_file[:,2]
+    	te_years = t_file[:,1]        
+    else:
+    	ts_years = t_file[:,1]
+    	te_years = t_file[:,2]
 
 if TBP==True:
 	true_root_age = np.max(ts_years)
@@ -467,6 +472,7 @@ te = te + args.death_jitter
 
 start_time = np.min(ts)
 end_time = np.max(te)
+# print((start_time,end_time+1))
 bins = np.arange(start_time,end_time+1)
 
 
@@ -561,10 +567,8 @@ sp_events_bin = np.array(sp_events_bin)
 ex_events_bin = np.array(ex_events_bin)
 br_length_bin = np.array(br_length_bin)
 
-print(sum(sp_events_bin),sum(ex_events_bin), sum(br_length_bin), sum(ex_events_bin)/sum(br_length_bin))
-print(sp_events_bin)
-print(ex_events_bin)
-#quit()
+# print(sum(sp_events_bin),sum(ex_events_bin), sum(br_length_bin), sum(ex_events_bin)/sum(br_length_bin))
+# print(np.array([sp_events_bin, ex_events_bin, br_length_bin]))
 
 n_bins = len(sp_events_bin)
 Tk = np.ones(n_bins) # time spent in state
