@@ -3,6 +3,7 @@ import sys
 import pandas as pd
 import argparse
 import numpy as np
+sys.path.append('..')
 from literate_library import print_R_vec, calcHPD
 
 p=argparse.ArgumentParser() #description='<input file>')
