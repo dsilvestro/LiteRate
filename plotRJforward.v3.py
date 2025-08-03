@@ -5,6 +5,10 @@ import os,platform,glob,sys
 import csv
 import argparse
 import pandas as pd
+import builtins
+min = builtins.min
+max = builtins.max
+
 
 def calcHPD(data, level=0.95) :
     assert (0 < level < 1)
