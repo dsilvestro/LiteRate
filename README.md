@@ -11,9 +11,9 @@ The repository also contains some more restricted birth-death models for testing
 # Cite
 To learn more about methods or if you use these models in published work, please cite both of:
 
-Gjesfjeld, Erik, Daniele Silvestro, Jonathan Chang, Bernard Koch, Jacob G. Foster, and Michael E. Alfaro. ‘A Quantitative Workflow for Modeling Diversification in Material Culture’. PLOS ONE 15, no. 2 (6 February 2020): e0227579. https://doi.org/10.1371/journal.pone.0227579.
-
 Koch, Bernard, Daniele Silvestro, and Jacob G. Foster. n.d. “The Evolutionary Dynamics of Cultural Change (as Told Through the Birth and Brutal, Blackened Death of Metal Music).” SocArXiv. [https://doi.org/10.31235/osf.io/659bt](https://doi.org/10.31235/osf.io/659bt).
+
+Gjesfjeld, Erik, Daniele Silvestro, Jonathan Chang, Bernard Koch, Jacob G. Foster, and Michael E. Alfaro. ‘A Quantitative Workflow for Modeling Diversification in Material Culture’. PLOS ONE 15, no. 2 (6 February 2020): e0227579. https://doi.org/10.1371/journal.pone.0227579.
 
 # Tutorials
 Detailed tutorials explaining the theory and how to use the models are [here](http://www.dysoc.org/cesmodules/diversification_module/) (thanks John Templeton Foundation, Cultural Evolution Society, and National Institute for Mathematical and Biological Synthesis!). If you're lazy the tutorials are linked below:
